@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@wowoengine/sawitdb": "^2.5.0"
+  }
+}
