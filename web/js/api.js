@@ -83,7 +83,9 @@ const API = {
         delete: (code) =>
             API.request(`/trees/${code}`, {
                 method: 'DELETE'
-            })
+            }),
+
+        history: (code) => API.request(`/trees/${code}/history`)
     },
 
     // Stats endpoint

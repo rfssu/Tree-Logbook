@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 
 	"prabogo/internal/adapter/inbound/http"
 	"prabogo/internal/adapter/outbound/monitoring_repository"
@@ -15,7 +17,6 @@ import (
 	"prabogo/internal/adapter/outbound/user_repository"
 	"prabogo/internal/domain/auth"
 	"prabogo/internal/domain/tree"
-	"prabogo/utils/activity"
 	"prabogo/utils/database"
 )
 
@@ -23,9 +24,8 @@ func main() {
 	// Load .env
 	godotenv.Load(".env")
 
-	ctx := activity.NewContext("api_server")
-
 	// Initialize database
+	ctx := context.Background()
 	db := database.InitDatabase(ctx, os.Getenv("OUTBOUND_DATABASE_DRIVER"))
 	defer db.Close()
 

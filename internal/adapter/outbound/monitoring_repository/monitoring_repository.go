@@ -2,10 +2,9 @@ package monitoring_repository
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
 
-	"prabogo/utils/activity"
-	"prabogo/utils/database"
+	"prabogo/internal/safeaql"
 )
 
 type MonitoringLog struct {
@@ -20,87 +19,39 @@ type MonitoringLog struct {
 }
 
 type MonitoringRepository struct {
-	db *database.Database
+	safeExec *safeaql.SafeExecutor
 }
 
-func NewMonitoringRepository(db *database.Database) *MonitoringRepository {
-	return &MonitoringRepository{db: db}
+func NewMonitoringRepository(db *sql.DB) *MonitoringRepository {
+	return &MonitoringRepository{
+		safeExec: safeaql.NewSafeExecutor(db),
+	}
 }
 
 // GetLogsByTreeCode gets all monitoring logs for a specific tree
 func (r *MonitoringRepository) GetLogsByTreeCode(ctx context.Context, treeCode string) ([]MonitoringLog, error) {
-	activity.Log(ctx, "MonitoringRepository.GetLogsByTreeCode", "tree_code", treeCode)
-
-	query := `
-		FOR log IN monitoring_logs
-			FILTER log.tree_code == @tree_code
-			SORT log.monitoring_date DESC, log.created_at DESC
-			RETURN {
-				id: log._key,
-				tree_code: log.tree_code,
-				status: log.status,
-				health_score: log.health_score,
-				notes: log.notes,
-				monitored_by: log.monitored_by,
-				monitoring_date: log.monitoring_date,
-				created_at: log.created_at
-			}
-	`
-
-	bindVars := map[string]interface{}{
-		"tree_code": treeCode,
-	}
-
-	cursor, err := r.db.Query(ctx, query, bindVars)
+	// Use Select with WHERE clause
+	where := "tree_code = '" + treeCode + "' ORDER BY monitoring_date DESC, created_at DESC"
+	rows, err := r.safeExec.Select(ctx, "monitoring_logs", "*", where)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query monitoring logs: %w", err)
+		return nil, err
 	}
-	defer cursor.Close()
+	defer rows.Close()
 
 	var logs []MonitoringLog
-	for cursor.HasMore() {
+	for rows.Next() {
 		var log MonitoringLog
-		_, err := cursor.ReadDocument(ctx, &log)
+		var id sql.NullString
+		err := rows.Scan(&id, &log.TreeCode, &log.Status, &log.HealthScore,
+			&log.Notes, &log.MonitoredBy, &log.MonitoringDate, &log.CreatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read log document: %w", err)
+			continue
+		}
+		if id.Valid {
+			log.ID = id.String
 		}
 		logs = append(logs, log)
 	}
 
 	return logs, nil
-}
-
-// Create creates a new monitoring log entry
-func (r *MonitoringRepository) Create(ctx context.Context, log MonitoringLog) error {
-	activity.Log(ctx, "MonitoringRepository.Create", "tree_code", log.TreeCode)
-
-	query := `
-		INSERT {
-			_key: @id,
-			tree_code: @tree_code,
-			status: @status,
-			health_score: @health_score,
-			notes: @notes,
-			monitored_by: @monitored_by,
-			monitoring_date: @monitoring_date,
-			created_at: DATE_ISO8601(DATE_NOW())
-		} INTO monitoring_logs
-	`
-
-	bindVars := map[string]interface{}{
-		"id":              log.ID,
-		"tree_code":       log.TreeCode,
-		"status":          log.Status,
-		"health_score":    log.HealthScore,
-		"notes":           log.Notes,
-		"monitored_by":    log.MonitoredBy,
-		"monitoring_date": log.MonitoringDate,
-	}
-
-	_, err := r.db.Query(ctx, query, bindVars)
-	if err != nil {
-		return fmt.Errorf("failed to create monitoring log: %w", err)
-	}
-
-	return nil
 }
