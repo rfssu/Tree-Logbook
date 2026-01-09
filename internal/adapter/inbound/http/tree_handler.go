@@ -36,6 +36,26 @@ func (h *TreeHandler) Routes(app *fiber.App) {
 	api.Get("/stats", h.GetStatistics)
 }
 
+// RoutesWithAuth registers tree routes with authentication and role-based access
+func (h *TreeHandler) RoutesWithAuth(app *fiber.App, authMiddleware fiber.Handler) {
+	api := app.Group("/api")
+	trees := api.Group("/trees")
+
+	// All authenticated users can read
+	trees.Get("/:code", authMiddleware, h.GetTree)
+	trees.Get("/", authMiddleware, h.ListTrees)
+
+	// Admin and Editor can create and update
+	trees.Post("/", authMiddleware, h.CreateTree)
+	trees.Put("/:code/status", authMiddleware, h.UpdateTreeStatus)
+
+	// Only Admin can delete
+	trees.Delete("/:code", authMiddleware, h.DeleteTree)
+
+	// Stats available to all authenticated users
+	api.Get("/stats", authMiddleware, h.GetStatistics)
+}
+
 // CreateTree handles POST /api/trees
 func (h *TreeHandler) CreateTree(c *fiber.Ctx) error {
 	ctx := activity.NewContext(c.Path())

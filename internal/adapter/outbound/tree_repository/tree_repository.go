@@ -27,7 +27,7 @@ func (r *TreeRepositoryAdapter) Create(ctx context.Context, t *tree.Tree) error 
 	return r.safeExec.Insert(ctx, "trees",
 		[]string{"id", "code", "species_id", "location_id", "planting_date", "age_years",
 			"height_meters", "diameter_cm", "status", "health_score", "notes", "registered_by"},
-		[]interface{}{t.ID, t.Code, t.SpeciesID, t.LocationID, t.PlantingDate, t.AgeYears,
+		[]interface{}{t.ID, t.Code, t.SpeciesID, t.LocationID, t.PlantingDate.Format("2006-01-02"), t.AgeYears,
 			t.HeightMeters, t.DiameterCm, string(t.Status), t.HealthScore, t.Notes, t.RegisteredBy})
 }
 
@@ -64,16 +64,16 @@ func (r *TreeRepositoryAdapter) FindByID(ctx context.Context, id string) (*tree.
 // FindAll retrieves trees with filter using PANEN
 func (r *TreeRepositoryAdapter) FindAll(ctx context.Context, filter tree.TreeFilter) ([]*tree.Tree, error) {
 	where := r.buildWhereClause(filter)
-	query := "*"
 
+	// Add LIMIT and OFFSET to WHERE clause
 	if filter.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+		where += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
 	if filter.Offset > 0 {
-		query += fmt.Sprintf(" OFFSET %d", filter.Offset)
+		where += fmt.Sprintf(" OFFSET %d", filter.Offset)
 	}
 
-	rows, err := r.safeExec.Select(ctx, "trees", query, where)
+	rows, err := r.safeExec.Select(ctx, "trees", "*", where)
 	if err != nil {
 		return nil, err
 	}

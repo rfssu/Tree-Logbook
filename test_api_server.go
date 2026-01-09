@@ -12,6 +12,8 @@ import (
 
 	"prabogo/internal/adapter/inbound/http"
 	"prabogo/internal/adapter/outbound/tree_repository"
+	"prabogo/internal/adapter/outbound/user_repository"
+	"prabogo/internal/domain/auth"
 	"prabogo/internal/domain/tree"
 	"prabogo/utils/activity"
 	"prabogo/utils/database"
@@ -27,17 +29,27 @@ func main() {
 	db := database.InitDatabase(ctx, os.Getenv("OUTBOUND_DATABASE_DRIVER"))
 	defer db.Close()
 
-	// Initialize repository & use case
+	// Initialize repositories
 	treeRepo := tree_repository.NewTreeRepository(db)
+	userRepo := user_repository.NewUserRepository(db)
+
+	// Initialize services & use cases
 	treeUseCase := tree.NewTreeUseCase(treeRepo)
+	authService := auth.NewAuthService(userRepo)
+
+	// Initialize handlers
 	treeHandler := http.NewTreeHandler(treeUseCase)
+	authHandler := http.NewAuthHandler(authService)
+
+	// Create auth middleware
+	authMiddleware := http.AuthMiddleware(authService)
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		AppName: "Tree-ID API v1.0",
 	})
 
-	// Middleware
+	// Global middleware
 	app.Use(logger.New())
 	app.Use(cors.New())
 
@@ -49,34 +61,46 @@ func main() {
 		})
 	})
 
-	// Register tree routes
-	treeHandler.Routes(app)
+	// Register auth routes
+	authHandler.Routes(app, authMiddleware)
+
+	// Register tree routes (with auth protection)
+	treeHandler.RoutesWithAuth(app, authMiddleware)
 
 	// Print banner
-	fmt.Println("\n🌳 Tree-ID API Server")
-	fmt.Println("=" + repeatString("=", 49))
+	fmt.Println("\n🌳 Tree-ID API Server with Authentication")
+	fmt.Println("=" + repeatString("=", 59))
 	fmt.Println("✅ Database: Connected")
 	fmt.Println("✅ AQL Translator: Active")
-	fmt.Println("\n📍 Routes:")
+	fmt.Println("✅ Authentication: JWT Enabled")
+	fmt.Println("\n📍 Public Routes:")
 	fmt.Println("   GET    /health")
-	fmt.Println("   POST   /api/trees")
-	fmt.Println("   GET    /api/trees/:code")
-	fmt.Println("   GET    /api/trees")
-	fmt.Println("   PUT    /api/trees/:code/status")
-	fmt.Println("   DELETE /api/trees/:code")
-	fmt.Println("   GET    /api/stats")
-	fmt.Println("\n🚀 Server running on http://localhost:8000")
-	fmt.Println("=" + repeatString("=", 49) + "\n")
+	fmt.Println("   POST   /api/auth/register")
+	fmt.Println("   POST   /api/auth/login")
+	fmt.Println("\n🔒 Protected Routes:")
+	fmt.Println("   GET    /api/auth/me")
+	fmt.Println("   POST   /api/trees              (admin, editor)")
+	fmt.Println("   GET    /api/trees/:code        (all roles)")
+	fmt.Println("   GET    /api/trees              (all roles)")
+	fmt.Println("   PUT    /api/trees/:code/status (admin, editor)")
+	fmt.Println("   DELETE /api/trees/:code        (admin only)")
+	fmt.Println("   GET    /api/stats              (all roles)")
+	fmt.Println("\n🚀 Server running on http://localhost:" + getPort())
+	fmt.Println("=" + repeatString("=", 59) + "\n")
 
 	// Start server
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8000"
-	}
-
+	port := getPort()
 	if err := app.Listen(":" + port); err != nil {
 		fmt.Printf("Error starting server: %v\n", err)
 	}
+}
+
+func getPort() string {
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "7000"
+	}
+	return port
 }
 
 func repeatString(s string, count int) string {
