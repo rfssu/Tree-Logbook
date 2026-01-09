@@ -3,55 +3,134 @@ package monitoring_repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
-	"prabogo/internal/safeaql"
+	"prabogo/internal/domain/tree"
 )
 
 type MonitoringLog struct {
-	ID             string `json:"id"`
-	TreeCode       string `json:"tree_code"`
-	Status         string `json:"status"`
-	HealthScore    int    `json:"health_score"`
-	Notes          string `json:"notes"`
-	MonitoredBy    string `json:"monitored_by"`
-	MonitoringDate string `json:"monitoring_date"`
-	CreatedAt      string `json:"created_at"`
+	ID           string  `json:"id"`
+	TreeID       string  `json:"tree_id"`
+	MonitorDate  string  `json:"monitor_date"`
+	Status       string  `json:"status"`
+	HealthScore  int     `json:"health_score"`
+	HeightMeters float64 `json:"height_meters"`
+	DiameterCm   float64 `json:"diameter_cm"`
+	Observations string  `json:"observations"`
+	ActionsTaken string  `json:"actions_taken"`
+	MonitoredBy  string  `json:"monitored_by"`
+	CreatedAt    string  `json:"created_at"`
 }
 
 type MonitoringRepository struct {
-	safeExec *safeaql.SafeExecutor
+	db *sql.DB
 }
 
 func NewMonitoringRepository(db *sql.DB) *MonitoringRepository {
 	return &MonitoringRepository{
-		safeExec: safeaql.NewSafeExecutor(db),
+		db: db,
 	}
 }
 
 // GetLogsByTreeCode gets all monitoring logs for a specific tree
 func (r *MonitoringRepository) GetLogsByTreeCode(ctx context.Context, treeCode string) ([]MonitoringLog, error) {
-	// Use Select with WHERE clause
-	where := "tree_code = '" + treeCode + "' ORDER BY monitoring_date DESC, created_at DESC"
-	rows, err := r.safeExec.Select(ctx, "monitoring_logs", "*", where)
+	// First get tree ID from code
+	var treeID string
+	err := r.db.QueryRowContext(ctx, "SELECT id FROM trees WHERE code = $1", treeCode).Scan(&treeID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tree not found: %w", err)
+	}
+
+	// Query monitoring logs with correct column names
+	query := `
+		SELECT id, tree_id, monitor_date, status, health_score, 
+		       height_meters, diameter_cm, observations, actions_taken,
+		       monitored_by, created_at
+		FROM monitoring_logs
+		WHERE tree_id = $1
+		ORDER BY monitor_date DESC, created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, treeID)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
 	}
 	defer rows.Close()
 
 	var logs []MonitoringLog
 	for rows.Next() {
 		var log MonitoringLog
-		var id sql.NullString
-		err := rows.Scan(&id, &log.TreeCode, &log.Status, &log.HealthScore,
-			&log.Notes, &log.MonitoredBy, &log.MonitoringDate, &log.CreatedAt)
+		err := rows.Scan(
+			&log.ID,
+			&log.TreeID,
+			&log.MonitorDate,
+			&log.Status,
+			&log.HealthScore,
+			&log.HeightMeters,
+			&log.DiameterCm,
+			&log.Observations,
+			&log.ActionsTaken,
+			&log.MonitoredBy,
+			&log.CreatedAt,
+		)
 		if err != nil {
-			continue
-		}
-		if id.Valid {
-			log.ID = id.String
+			return nil, fmt.Errorf("scan error: %w", err)
 		}
 		logs = append(logs, log)
 	}
 
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
 	return logs, nil
+}
+
+// CreateLog inserts a new monitoring log - implements tree.MonitoringRepository interface
+func (r *MonitoringRepository) CreateLog(ctx context.Context, log *tree.MonitoringLog) error {
+	// Get tree ID from tree code
+	var treeID string
+	err := r.db.QueryRowContext(ctx, "SELECT id FROM trees WHERE code = $1", log.TreeCode).Scan(&treeID)
+	if err != nil {
+		return fmt.Errorf("tree not found: %w", err)
+	}
+
+	// Also get current tree height/diameter for logging
+	var heightMeters, diameterCm float64
+	err = r.db.QueryRowContext(ctx,
+		"SELECT height_meters, diameter_cm FROM trees WHERE code = $1",
+		log.TreeCode).Scan(&heightMeters, &diameterCm)
+	if err != nil {
+		// If can't get dimensions, use 0 as default
+		heightMeters = 0
+		diameterCm = 0
+	}
+
+	query := `
+		INSERT INTO monitoring_logs (
+			id, tree_id, monitor_date, status, health_score, 
+			height_meters, diameter_cm, observations, actions_taken, 
+			monitored_by, created_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+	`
+
+	_, err = r.db.ExecContext(ctx, query,
+		log.ID,
+		treeID,
+		log.MonitoringDate,
+		string(log.Status),
+		log.HealthScore,
+		heightMeters,    // Added: from tree's current dimensions
+		diameterCm,      // Added: from tree's current dimensions
+		log.Notes,       // Maps to observations
+		"Status update", // Added: default action description
+		log.MonitoredBy,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to insert monitoring log: %w", err)
+	}
+
+	return nil
 }

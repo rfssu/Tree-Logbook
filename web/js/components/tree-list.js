@@ -62,34 +62,23 @@ function renderTreeList() {
               <form id="update-form">
                 <input type="hidden" id="update-tree-code">
                 <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2">New Status *</label>
-                  <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required onchange="handleStatusChange()">
-                    <option value="SEHAT">🌿 SEHAT</option>
-                    <option value="DIPUPUK">💊 DIPUPUK</option>
-                    <option value="DIPANTAU">👁️ DIPANTAU</option>
-                    <option value="SAKIT">⚠️ SAKIT</option>
-                    <option value="MATI">💀 MATI</option>
+                  <label class="block text-sm font-medium mb-2">Status/Kondisi Pohon *</label>
+                  <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required>
+                    <option value="SEHAT">🌿 Sehat (Health: 90%)</option>
+                    <option value="DIPUPUK">💊 Dipupuk (Health: 75%)</option>
+                    <option value="DIPANTAU">👁️ Dipantau (Health: 85%)</option>
+                    <option value="SAKIT">⚠️ Sakit (Health: 40%)</option>
+                    <option value="MATI">💀 Mati (Health: 0%)</option>
                   </select>
-                </div>
-                <div class="mb-4" id="health-input-container">
-                  <label class="block text-sm font-medium mb-2">New Health Condition *</label>
-                  <select id="health-condition" class="w-full px-4 py-2 border rounded-lg" required onchange="updateHealthScore()">
-                    <option value="100">⭐ Sangat Sehat (95-100%)</option>
-                    <option value="85">👍 Sehat (80-90%)</option>
-                    <option value="70">😐 Cukup Sehat (60-75%)</option>
-                    <option value="50">😟 Kurang Sehat (40-55%)</option>
-                    <option value="25">😢 Sakit (20-30%)</option>
-                    <option value="10">💀 Sangat Sakit (5-15%)</option>
-                  </select>
-                  <p class="text-sm text-gray-500 mt-1">Health: <strong id="health-display">100%</strong></p>
+                  <p class="text-xs text-gray-500 mt-1">Health score otomatis sesuai status</p>
                 </div>
                 <div class="mb-4">
-                  <label class="block text-sm font-medium mb-2">Notes</label>
-                  <textarea id="update-notes" rows="2" class="w-full px-4 py-2 border rounded-lg"></textarea>
+                  <label class="block text-sm font-medium mb-2">Catatan</label>
+                  <textarea id="update-notes" rows="3" class="w-full px-4 py-2 border rounded-lg" placeholder="Catatan monitoring (opsional)"></textarea>
                 </div>
                 <div class="flex space-x-3">
                   <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Update</button>
-                  <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                  <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Batal</button>
                 </div>
               </form>
             </div>
@@ -131,18 +120,19 @@ function renderTreeList() {
 function handleStatusChange() {
   const status = document.getElementById('update-status').value;
   const healthContainer = document.getElementById('health-input-container');
-  if (status === 'MATI') {
-    healthContainer.classList.add('hidden');
-    document.getElementById('health-display').textContent = '0%';
-  } else {
-    healthContainer.classList.remove('hidden');
-    updateHealthScore();
-  }
-}
+  const healthInput = document.getElementById('health-score');
 
-function updateHealthScore() {
-  const val = document.getElementById('health-condition').value;
-  document.getElementById('health-display').textContent = val + '%';
+  if (status === 'MATI') {
+    healthInput.value = 0;
+    healthInput.disabled = true;
+    healthContainer.classList.add('opacity-50');
+  } else {
+    healthInput.disabled = false;
+    healthContainer.classList.remove('opacity-50');
+    if (healthInput.value == 0) {
+      healthInput.value = 50; // Default to 50% when enabling
+    }
+  }
 }
 
 async function loadTrees() {
@@ -158,6 +148,7 @@ async function loadTrees() {
           <thead class="bg-gray-50">
             <tr>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Pohon</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Health</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Height</th>
@@ -170,6 +161,7 @@ async function loadTrees() {
             ${trees.map(tree => `
               <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 font-medium">${tree.code}</td>
+                <td class="px-6 py-4 text-sm">${getSpeciesName(tree.species_id)}</td>
                 <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span></td>
                 <td class="px-6 py-4"><span class="font-medium text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span></td>
                 <td class="px-6 py-4">${tree.height_meters}m</td>
@@ -215,13 +207,11 @@ async function openUpdateModal(code) {
       document.getElementById('last-updated-by').textContent = tree.registered_by || 'System';
 
       document.getElementById('update-status').value = tree.status;
-      let health = tree.health_score >= 95 ? '100' : tree.health_score >= 80 ? '85' : tree.health_score >= 60 ? '70' : tree.health_score >= 40 ? '50' : tree.health_score >= 20 ? '25' : '10';
-      document.getElementById('health-condition').value = health;
-      updateHealthScore();
+      document.getElementById('health-score').value = tree.health_score;
 
       if (tree.status === 'MATI') {
-        document.getElementById('health-input-container').classList.add('hidden');
-        document.getElementById('health-display').textContent = '0%';
+        document.getElementById('health-score').disabled = true;
+        document.getElementById('health-input-container').classList.add('opacity-50');
       }
 
       loadUpdateHistory(code);
@@ -261,7 +251,7 @@ async function loadUpdateHistory(code) {
       };
 
       const html = logs.map(log => {
-        const date = new Date(log.monitoring_date || log.created_at);
+        const date = new Date(log.monitor_date || log.created_at);
         const now = new Date();
         const diff = now - date;
         const mins = Math.floor(diff / 60000);
@@ -281,7 +271,7 @@ async function loadUpdateHistory(code) {
         return `
           <div class="border-l-2 border-${color}-500 pl-3 py-2">
             <div class="font-medium text-${color}-700">${icon} ${log.status}</div>
-            <div class="text-xs text-gray-600">Health: ${log.health_score}%${log.notes ? ' • "' + log.notes + '"' : ''}</div>
+            <div class="text-xs text-gray-600">Health: ${log.health_score}%${log.observations ? ' • "' + log.observations + '"' : ''}</div>
             <div class="text-xs text-gray-500 mt-1">${ago} • ${log.monitored_by}</div>
           </div>
         `;
@@ -306,18 +296,25 @@ async function handleUpdateSubmit(e) {
   e.preventDefault();
   const code = document.getElementById('update-tree-code').value;
   const status = document.getElementById('update-status').value;
-  const health = status === 'MATI' ? 0 : parseInt(document.getElementById('health-condition').value);
+  const health = status === 'MATI' ? 0 : parseInt(document.getElementById('health-score').value);
   const notes = document.getElementById('update-notes').value;
+
+  // Validate health score
+  if (health < 0 || health > 100) {
+    showToast('Skor kesehatan harus 0-100%', 'error');
+    return;
+  }
+
   try {
     showLoading(true);
     const response = await API.trees.updateStatus(code, { status, health_score: health, notes });
     if (response.success) {
-      showToast('Updated!', 'success');
+      showToast('Status berhasil diupdate!', 'success');
       closeUpdateModal();
       loadTrees();
     }
   } catch (e) {
-    showToast(e.message || 'Update failed', 'error');
+    showToast(e.message || 'Update gagal', 'error');
   } finally {
     showLoading(false);
   }

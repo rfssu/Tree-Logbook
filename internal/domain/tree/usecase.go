@@ -11,9 +11,9 @@ type TreeUseCase struct {
 }
 
 // NewTreeUseCase creates a new tree use case
-func NewTreeUseCase(repo TreeRepository) *TreeUseCase {
+func NewTreeUseCase(repo TreeRepository, monitoringRepo MonitoringRepository) *TreeUseCase {
 	return &TreeUseCase{
-		service: NewTreeService(repo),
+		service: NewTreeService(repo, monitoringRepo),
 	}
 }
 

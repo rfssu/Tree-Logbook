@@ -53,12 +53,32 @@ type TreeRepository interface {
 
 // TreeService handles tree business logic
 type TreeService struct {
-	repo TreeRepository
+	repo           TreeRepository
+	monitoringRepo MonitoringRepository
+}
+
+// MonitoringRepository interface for logging tree changes
+type MonitoringRepository interface {
+	CreateLog(ctx context.Context, log *MonitoringLog) error
+}
+
+// MonitoringLog represents a tree monitoring event
+type MonitoringLog struct {
+	ID             string
+	TreeCode       string
+	Status         TreeStatus
+	HealthScore    int
+	Notes          string
+	MonitoredBy    string
+	MonitoringDate time.Time
 }
 
 // NewTreeService creates a new tree service
-func NewTreeService(repo TreeRepository) *TreeService {
-	return &TreeService{repo: repo}
+func NewTreeService(repo TreeRepository, monitoringRepo MonitoringRepository) *TreeService {
+	return &TreeService{
+		repo:           repo,
+		monitoringRepo: monitoringRepo,
+	}
 }
 
 // RegisterTreeRequest represents request to register a new tree
@@ -165,9 +185,26 @@ func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newS
 	}
 	tree.UpdatedAt = time.Now()
 
-	// 5. Save changes
+	// 5. Save changes to trees table
 	if err := s.repo.Update(ctx, tree); err != nil {
 		return fmt.Errorf("failed to update tree: %w", err)
+	}
+
+	// 6. ✅ NEW: Insert monitoring log to track this change
+	monitoringLog := &MonitoringLog{
+		ID:             uuid.New().String(),
+		TreeCode:       tree.Code,
+		Status:         newStatus,
+		HealthScore:    healthScore,
+		Notes:          notes,
+		MonitoredBy:    tree.RegisteredBy, // TODO: Get from auth context
+		MonitoringDate: time.Now(),
+	}
+
+	if err := s.monitoringRepo.CreateLog(ctx, monitoringLog); err != nil {
+		// Log error but don't fail the update
+		// Tree update succeeded, logging is secondary
+		fmt.Printf("Warning: failed to create monitoring log: %v\n", err)
 	}
 
 	return nil

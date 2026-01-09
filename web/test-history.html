@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test History API</title>
+</head>
+<body>
+    <h1>History API Test</h1>
+    <button onclick="testHistory()">Test History API</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testHistory() {
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Testing...';
+            
+            try {
+                // Get token from localStorage (if exists)
+                const tokenData = localStorage.getItem('tree_id_token');
+                const token = tokenData ? JSON.parse(tokenData) : null;
+                
+                if (!token) {
+                    resultEl.textContent = 'No token found. Login first at index.html';
+                    return;
+                }
+                
+                const response = await fetch('http://localhost:7000/api/trees/C005/history', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultEl.textContent = 'Error: ' + error.message + '\n\n' + error.stack;
+            }
+        }
+    </script>
+</body>
+</html>

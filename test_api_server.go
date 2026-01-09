@@ -35,7 +35,7 @@ func main() {
 	monitoringRepo := monitoring_repository.NewMonitoringRepository(db)
 
 	// Initialize services & use cases
-	treeUseCase := tree.NewTreeUseCase(treeRepo)
+	treeUseCase := tree.NewTreeUseCase(treeRepo, monitoringRepo)
 	authService := auth.NewAuthService(userRepo)
 
 	// Initialize handlers
