@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"prabogo/internal/domain/tree"
-	outbound_port "prabogo/internal/port/outbound"
 	"prabogo/internal/safeaql"
 )
 
@@ -17,7 +16,7 @@ type TreeRepositoryAdapter struct {
 }
 
 // NewTreeRepository creates new tree repository
-func NewTreeRepository(db *sql.DB) outbound_port.TreeRepository {
+func NewTreeRepository(db *sql.DB) tree.TreeRepository {
 	return &TreeRepositoryAdapter{
 		safeExec: safeaql.NewSafeExecutor(db),
 	}
@@ -63,7 +62,7 @@ func (r *TreeRepositoryAdapter) FindByID(ctx context.Context, id string) (*tree.
 }
 
 // FindAll retrieves trees with filter using PANEN
-func (r *TreeRepositoryAdapter) FindAll(ctx context.Context, filter outbound_port.TreeFilter) ([]*tree.Tree, error) {
+func (r *TreeRepositoryAdapter) FindAll(ctx context.Context, filter tree.TreeFilter) ([]*tree.Tree, error) {
 	where := r.buildWhereClause(filter)
 	query := "*"
 
@@ -146,17 +145,17 @@ func (r *TreeRepositoryAdapter) GetNextCode(ctx context.Context) (string, error)
 }
 
 // CountByLocation counts trees in location
-func (r *TreeRepositoryAdapter) CountByLocation(ctx context.Context, locationID string) (int, error) {
+func (r *TreeRepositoryAdapter) CountByLocation(ctx context.Context, locationID string) (int64, error) {
 	return r.safeExec.Count(ctx, "trees", fmt.Sprintf("location_id='%s'", locationID))
 }
 
 // CountByStatus counts trees by status
-func (r *TreeRepositoryAdapter) CountByStatus(ctx context.Context, status tree.TreeStatus) (int, error) {
+func (r *TreeRepositoryAdapter) CountByStatus(ctx context.Context, status tree.TreeStatus) (int64, error) {
 	return r.safeExec.Count(ctx, "trees", fmt.Sprintf("status='%s'", string(status)))
 }
 
 // Helper: Build WHERE clause from filter
-func (r *TreeRepositoryAdapter) buildWhereClause(filter outbound_port.TreeFilter) string {
+func (r *TreeRepositoryAdapter) buildWhereClause(filter tree.TreeFilter) string {
 	conditions := []string{}
 
 	if filter.LocationID != "" {
