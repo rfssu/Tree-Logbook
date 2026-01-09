@@ -6,6 +6,7 @@ toolchain go1.23.9
 
 require (
 	cloud.google.com/go/pubsub v1.49.0
+	github.com/arielfikru/gibrun v1.0.0
 	github.com/doug-martin/goqu/v9 v9.19.0
 	github.com/gofiber/fiber/v2 v2.52.8
 	github.com/golang/mock v1.6.0
@@ -30,7 +31,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	cloud.google.com/go/iam v1.5.2 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/arielfikru/gibrun v1.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect

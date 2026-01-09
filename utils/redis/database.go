@@ -3,11 +3,12 @@ package redis
 import (
 	"context"
 	"os"
+	"time"
 
-	redis "github.com/redis/go-redis/v9"
+	"github.com/arielfikru/gibrun"
 )
 
-var dbClient *redis.Client
+var gibClient *gibrun.Client
 
 func InitDatabase() {
 	addr := os.Getenv("CACHE_HOST")
@@ -16,20 +17,36 @@ func InitDatabase() {
 	if port == "" {
 		port = "6379"
 	}
-	dbClient = redis.NewClient(&redis.Options{
+
+	// Initialize Gib.Run client with Config
+	// Optimized for read-heavy tree logbook operations
+	gibClient = gibrun.New(gibrun.Config{
 		Addr:     addr + ":" + port,
 		Password: pass,
 	})
 }
 
+// Set - Stores data using Gib (automatic JSON marshalling)
 func Set(ctx context.Context, key string, value interface{}) error {
-	return dbClient.Set(ctx, key, value, 24*60*60*1e9).Err() // 1 day in nanoseconds
+	return gibClient.Gib(ctx, key).
+		Value(value).
+		TTL(24 * time.Hour).
+		Exec()
 }
 
+// Get - Retrieves string data using Run (automatic unmarshalling)
 func Get(ctx context.Context, key string) (string, error) {
-	return dbClient.Get(ctx, key).Result()
+	result, found, err := gibClient.Run(ctx, key).Raw()
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", nil // Key not found
+	}
+	return result, nil
 }
 
+// Del - Delete key from cache
 func Del(ctx context.Context, key string) error {
-	return dbClient.Del(ctx, key).Err()
+	return gibClient.Del(ctx, key)
 }

@@ -98,8 +98,28 @@ func IsInList(list []string, s string) bool {
 }
 
 func GetDatabaseString() string {
+	driver := os.Getenv("OUTBOUND_DATABASE_DRIVER")
+
+	// SawitDB WowoEngine uses custom protocol
+	if driver == "sawitdb" {
+		// Build sawitdb connection string without sslmode
+		username := os.Getenv("DATABASE_USERNAME")
+		password := os.Getenv("DATABASE_PASSWORD")
+		host := os.Getenv("DATABASE_HOST")
+		port := os.Getenv("DATABASE_PORT")
+		dbname := os.Getenv("DATABASE_NAME")
+
+		if password == "" {
+			return fmt.Sprintf("sawitdb://%s@%s:%s/%s?connect_timeout=5",
+				username, host, port, dbname)
+		}
+		return fmt.Sprintf("sawitdb://%s:%s@%s:%s/%s?connect_timeout=5",
+			username, password, host, port, dbname)
+	}
+
+	// Fallback to standard SQL connection string (PostgreSQL, etc.)
 	return fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=%s&connect_timeout=5",
-		os.Getenv("OUTBOUND_DATABASE_DRIVER"),
+		driver,
 		os.Getenv("DATABASE_USERNAME"),
 		os.Getenv("DATABASE_PASSWORD"),
 		os.Getenv("DATABASE_HOST"),
