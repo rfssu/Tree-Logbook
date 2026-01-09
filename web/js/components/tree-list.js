@@ -234,27 +234,67 @@ async function openUpdateModal(code) {
   }
 }
 
-function loadUpdateHistory(code) {
-  document.getElementById('update-history').innerHTML = `
-    <div class="text-sm space-y-2">
-      <div class="border-l-2 border-green-500 pl-3 py-2">
-        <div class="font-medium text-green-700">🌿 SEHAT</div>
-        <div class="text-xs text-gray-600">Health: 95% • "Recovering well"</div>
-        <div class="text-xs text-gray-500 mt-1">2 days ago • USR001</div>
-      </div>
-      <div class="border-l-2 border-purple-500 pl-3 py-2">
-        <div class="font-medium text-purple-700">💊 DIPUPUK</div>
-        <div class="text-xs text-gray-600">Health: 85% • "Applied fertilizer"</div>
-        <div class="text-xs text-gray-500 mt-1">5 days ago • USR002</div>
-      </div>
-      <div class="border-l-2 border-gray-400 pl-3 py-2">
-        <div class="font-medium">🌱 Registered</div>
-        <div class="text-xs text-gray-600">Initial health: 100%</div>
-        <div class="text-xs text-gray-500 mt-1">1 week ago • USR001</div>
-      </div>
-    </div>
-    <p class="text-xs text-gray-400 text-center mt-3 pt-2 border-t">ℹ️ Mock data - Full API integration coming soon</p>
-  `;
+async function loadUpdateHistory(code) {
+  const container = document.getElementById('update-history');
+  container.innerHTML = '<p class="text-sm text-gray-500">Loading...</p>';
+
+  try {
+    const response = await API.trees.history(code);
+
+    if (response.success && response.data && response.data.length > 0) {
+      const logs = response.data;
+
+      const statusColors = {
+        'SEHAT': 'green',
+        'SAKIT': 'yellow',
+        'MATI': 'red',
+        'DIPUPUK': 'purple',
+        'DIPANTAU': 'blue'
+      };
+
+      const statusIcons = {
+        'SEHAT': '🌿',
+        'SAKIT': '⚠️',
+        'MATI': '💀',
+        'DIPUPUK': '💊',
+        'DIPANTAU': '👁️'
+      };
+
+      const html = logs.map(log => {
+        const date = new Date(log.monitoring_date || log.created_at);
+        const now = new Date();
+        const diff = now - date;
+        const mins = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        let ago;
+        if (mins < 1) ago = 'Just now';
+        else if (mins < 60) ago = `${mins} mins ago`;
+        else if (hours < 24) ago = `${hours} hours ago`;
+        else if (days < 30) ago = `${days} days ago`;
+        else ago = date.toLocaleDateString('id-ID');
+
+        const color = statusColors[log.status] || 'gray';
+        const icon = statusIcons[log.status] || '📝';
+
+        return `
+          <div class="border-l-2 border-${color}-500 pl-3 py-2">
+            <div class="font-medium text-${color}-700">${icon} ${log.status}</div>
+            <div class="text-xs text-gray-600">Health: ${log.health_score}%${log.notes ? ' • "' + log.notes + '"' : ''}</div>
+            <div class="text-xs text-gray-500 mt-1">${ago} • ${log.monitored_by}</div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = `<div class="text-sm space-y-2">${html}</div>`;
+    } else {
+      container.innerHTML = '<p class="text-sm text-gray-500 text-center">No history yet</p>';
+    }
+  } catch (error) {
+    container.innerHTML = '<p class="text-sm text-red-600">Failed to load history</p>';
+    console.error('History error:', error);
+  }
 }
 
 function closeUpdateModal() {

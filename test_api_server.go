@@ -8,9 +8,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 
 	"prabogo/internal/adapter/inbound/http"
+	"prabogo/internal/adapter/outbound/monitoring_repository"
 	"prabogo/internal/adapter/outbound/tree_repository"
 	"prabogo/internal/adapter/outbound/user_repository"
 	"prabogo/internal/domain/auth"
@@ -32,6 +32,7 @@ func main() {
 	// Initialize repositories
 	treeRepo := tree_repository.NewTreeRepository(db)
 	userRepo := user_repository.NewUserRepository(db)
+	monitoringRepo := monitoring_repository.NewMonitoringRepository(db)
 
 	// Initialize services & use cases
 	treeUseCase := tree.NewTreeUseCase(treeRepo)
@@ -40,6 +41,7 @@ func main() {
 	// Initialize handlers
 	treeHandler := http.NewTreeHandler(treeUseCase)
 	authHandler := http.NewAuthHandler(authService)
+	monitoringHandler := http.NewMonitoringHandler(monitoringRepo)
 
 	// Create auth middleware
 	authMiddleware := http.AuthMiddleware(authService)
@@ -67,6 +69,10 @@ func main() {
 	// Register tree routes (with auth protection)
 	treeHandler.RoutesWithAuth(app, authMiddleware)
 
+	// Register monitoring routes
+	api := app.Group("/api")
+	api.Get("/trees/:code/history", authMiddleware, monitoringHandler.GetTreeHistory)
+
 	// Print banner
 	fmt.Println("\n🌳 Tree-ID API Server with Authentication")
 	fmt.Println("=" + repeatString("=", 59))
@@ -85,6 +91,7 @@ func main() {
 	fmt.Println("   PUT    /api/trees/:code/status (admin, editor)")
 	fmt.Println("   DELETE /api/trees/:code        (admin only)")
 	fmt.Println("   GET    /api/stats              (all roles)")
+	fmt.Println("   GET    /api/trees/:code/history (all roles)")
 	fmt.Println("\n🚀 Server running on http://localhost:" + getPort())
 	fmt.Println("=" + repeatString("=", 59) + "\n")
 
