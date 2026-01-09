@@ -1,0 +1,99 @@
+/* Tree-ID Sat-set Development CSS */
+/* Tailwind CSS v4 with @theme directives - NO tailwind.config.js needed */
+
+@theme {
+  /* Color Palette - Agricultural Theme */
+  --color-sawit-green: #66bb6a;
+  --color-sawit-dark: #43a047;
+  --color-pohon-brown: #8d6e63;
+  --color-tanah-dark: #4e342e;
+  --color-daun-light: #a5d6a7;
+  
+  /* Tree Status Colors */
+  --color-sehat: #4caf50;
+  --color-sakit: #ff9800;
+  --color-mati: #f44336;
+  
+  /* Typography */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size-base: 16px;
+  --font-size-heading: 2.5rem;
+  
+  /* Spacing */
+  --spacing-unit: 8px;
+  --container-max-width: 1200px;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
+/* Base Styles */
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--color-tanah-dark);
+}
+
+/* JokoUI Components - Copy-Paste Ready */
+
+.btn-primary {
+  background-color: var(--color-sawit-green);
+  color: white;
+  padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 3);
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-sawit-dark);
+}
+
+.card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: calc(var(--spacing-unit) * 3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: calc(var(--spacing-unit) * 0.5) calc(var(--spacing-unit) * 1.5);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.status-sehat {
+  background-color: var(--color-sehat);
+  color: white;
+}
+
+.status-sakit {
+  background-color: var(--color-sakit);
+  color: white;
+}
+
+.status-mati {
+  background-color: var(--color-mati);
+  color: white;
+}
+
+/* Utility Classes */
+.container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: 0 calc(var(--spacing-unit) * 2);
+}
+
+.mt-1 { margin-top: var(--spacing-unit); }
+.mt-2 { margin-top: calc(var(--spacing-unit) * 2); }
+.mt-3 { margin-top: calc(var(--spacing-unit) * 3); }
+
+.mb-1 { margin-bottom: var(--spacing-unit); }
+.mb-2 { margin-bottom: calc(var(--spacing-unit) * 2); }
+.mb-3 { margin-bottom: calc(var(--spacing-unit) * 3); }

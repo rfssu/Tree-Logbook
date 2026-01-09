@@ -12,15 +12,18 @@ import (
 
 // SafeExecutor wraps AQL operations with safety checks
 // This is the ONLY recommended way to execute database operations in Tree-ID
+// Translates AQL to SQL for PostgreSQL backend compatibility
 type SafeExecutor struct {
-	db      *sql.DB
-	builder *aql.QueryBuilder
+	db         *sql.DB
+	builder    *aql.QueryBuilder
+	translator *aql.Translator
 }
 
 func NewSafeExecutor(db *sql.DB) *SafeExecutor {
 	return &SafeExecutor{
-		db:      db,
-		builder: aql.New(),
+		db:         db,
+		builder:    aql.New(),
+		translator: aql.NewTranslator(),
 	}
 }
 
@@ -74,9 +77,15 @@ func (s *SafeExecutor) SafeDropTable(ctx context.Context, opts DropTableOptions)
 		time.Now().Format(time.RFC3339),
 	)
 
+	// Build AQL query
+	aqlQuery := s.builder.DropTable(opts.TableName)
+
+	// Translate to SQL
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
 	// Execute destructive operation
-	query := s.builder.DropTable(opts.TableName)
-	_, err := s.db.ExecContext(ctx, query)
+	_, err := s.db.ExecContext(ctx, sqlQuery)
 
 	if err != nil {
 		log.WithContext(ctx).Errorf(
@@ -99,49 +108,77 @@ func (s *SafeExecutor) SafeDropTable(ctx context.Context, opts DropTableOptions)
 
 // CreateTable - LAHAN [table]
 func (s *SafeExecutor) CreateTable(ctx context.Context, tableName, columns string) error {
-	query := s.builder.CreateTable(tableName, columns)
-	log.WithContext(ctx).Infof("Creating table: %s", tableName)
-	_, err := s.db.ExecContext(ctx, query)
+	aqlQuery := s.builder.CreateTable(tableName, columns)
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Infof("Creating table: %s (AQL: %s)", tableName, aqlQuery)
+	log.WithContext(ctx).Debugf("SQL: %s", sqlQuery)
+
+	_, err := s.db.ExecContext(ctx, sqlQuery)
 	return err
 }
 
 // Insert - TANAM KE [table]
 func (s *SafeExecutor) Insert(ctx context.Context, table string, columns []string, values []interface{}) error {
-	query := s.builder.Insert(table, columns, values)
-	_, err := s.db.ExecContext(ctx, query)
+	aqlQuery := s.builder.Insert(table, columns, values)
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
+	_, err := s.db.ExecContext(ctx, sqlQuery)
 	return err
 }
 
 // Select - PANEN [columns] DARI [table]
 func (s *SafeExecutor) Select(ctx context.Context, table, columns, where string) (*sql.Rows, error) {
-	query := s.builder.Select(table, columns, where)
-	return s.db.QueryContext(ctx, query)
+	aqlQuery := s.builder.Select(table, columns, where)
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
+	return s.db.QueryContext(ctx, sqlQuery)
 }
 
 // Update - PUPUK [table] DENGAN [set]
 func (s *SafeExecutor) Update(ctx context.Context, table, set, where string) error {
-	query := s.builder.Update(table, set, where)
-	_, err := s.db.ExecContext(ctx, query)
+	aqlQuery := s.builder.Update(table, set, where)
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
+	_, err := s.db.ExecContext(ctx, sqlQuery)
 	return err
 }
 
 // Delete - GUSUR DARI [table]
 func (s *SafeExecutor) Delete(ctx context.Context, table, where string) error {
-	query := s.builder.Delete(table, where)
-	_, err := s.db.ExecContext(ctx, query)
+	aqlQuery := s.builder.Delete(table, where)
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
+	_, err := s.db.ExecContext(ctx, sqlQuery)
 	return err
 }
 
 // ShowTables - LIHAT LAHAN
 func (s *SafeExecutor) ShowTables(ctx context.Context) (*sql.Rows, error) {
-	query := s.builder.ShowTables()
-	return s.db.QueryContext(ctx, query)
+	aqlQuery := s.builder.ShowTables()
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
+	return s.db.QueryContext(ctx, sqlQuery)
 }
 
 // Count - HITUNG COUNT(*) DARI [table]
 func (s *SafeExecutor) Count(ctx context.Context, table, where string) (int64, error) {
-	query := s.builder.Count(table, where)
+	aqlQuery := s.builder.Count(table, where)
+	sqlQuery := s.translator.ToSQL(aqlQuery)
+
+	log.WithContext(ctx).Debugf("AQL: %s -> SQL: %s", aqlQuery, sqlQuery)
+
 	var count int64
-	err := s.db.QueryRowContext(ctx, query).Scan(&count)
+	err := s.db.QueryRowContext(ctx, sqlQuery).Scan(&count)
 	return count, err
 }

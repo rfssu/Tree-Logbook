@@ -14,8 +14,7 @@ import (
 func InitDatabase(ctx context.Context, outboundDatabaseDriver string) *sql.DB {
 	connStr := utils.GetDatabaseString()
 
-	// For SawitDB (WowoEngine), use custom driver
-	// Assuming sawitdb provides a driver compatible with database/sql
+	// Open database connection
 	db, err := sql.Open(outboundDatabaseDriver, connStr)
 	if err != nil {
 		log.WithContext(ctx).Fatalf("failed to open database: %+v", err)
@@ -27,15 +26,16 @@ func InitDatabase(ctx context.Context, outboundDatabaseDriver string) *sql.DB {
 		os.Exit(1)
 	}
 
-	// AQL-based migrations for SawitDB handled differently
-	// Goose does not support AQL syntax - migrations must use AQL query builder
-	if outboundDatabaseDriver != "sawitdb" {
+	// Run migrations based on driver
+	// For postgres: use goose
+	// For sawitdb: skip (AQL migrations handled separately)
+	if outboundDatabaseDriver == "postgres" {
 		if err := goose.Up(db, utils.GetMigrationDir()); err != nil {
 			log.WithContext(ctx).Fatalf("failed to running migration: %+v", err)
 			os.Exit(1)
 		}
-	} else {
-		log.WithContext(ctx).Info("SawitDB detected - skipping goose migrations (use AQL migrations)")
+	} else if outboundDatabaseDriver == "sawitdb" {
+		log.WithContext(ctx).Info("SawitDB mode - skipping goose migrations (use AQL migrations when available)")
 	}
 
 	return db
