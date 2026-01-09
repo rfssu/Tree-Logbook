@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"prabogo/internal/domain/auth"
 	"prabogo/internal/domain/tree"
 	"prabogo/utils/activity"
 
@@ -41,16 +42,18 @@ func (h *TreeHandler) RoutesWithAuth(app *fiber.App, authMiddleware fiber.Handle
 	api := app.Group("/api")
 	trees := api.Group("/trees")
 
-	// All authenticated users can read
+	// All authenticated users can read (viewer, editor, admin)
 	trees.Get("/:code", authMiddleware, h.GetTree)
 	trees.Get("/", authMiddleware, h.ListTrees)
 
-	// Admin and Editor can create and update
-	trees.Post("/", authMiddleware, h.CreateTree)
-	trees.Put("/:code/status", authMiddleware, h.UpdateTreeStatus)
+	// Only Admin and Editor can create trees
+	trees.Post("/", authMiddleware, RoleMiddleware(auth.RoleAdmin, auth.RoleEditor), h.CreateTree)
 
-	// Only Admin can delete
-	trees.Delete("/:code", authMiddleware, h.DeleteTree)
+	// Only Admin and Editor can update tree status
+	trees.Put("/:code/status", authMiddleware, RoleMiddleware(auth.RoleAdmin, auth.RoleEditor), h.UpdateTreeStatus)
+
+	// Only Admin can delete trees
+	trees.Delete("/:code", authMiddleware, RoleMiddleware(auth.RoleAdmin), h.DeleteTree)
 
 	// Stats available to all authenticated users
 	api.Get("/stats", authMiddleware, h.GetStatistics)
