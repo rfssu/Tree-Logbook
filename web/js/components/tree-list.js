@@ -1,4 +1,4 @@
-// Tree List Component with Smart Health Input
+// Tree List Component with Smart Health Input & History
 function renderTreeList() {
   const canEdit = Auth.canEdit();
   const canDelete = Auth.canDelete();
@@ -35,97 +35,85 @@ function renderTreeList() {
       </div>
 
       <!-- Update Modal -->
-      <div id="update-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <h3 class="text-xl font-bold mb-4">Update Tree Status</h3>
+      <div id="update-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-lg p-6 max-w-6xl w-full my-8">
+          <div class="flex justify-between items-start mb-4">
+            <h3 class="text-xl font-bold">Update Tree Status</h3>
+            <button onclick="closeUpdateModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+          </div>
           
-          <!-- Current Tree Info -->
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <h4 class="font-semibold text-blue-900 mb-2">📋 Current Information</h4>
-            <div class="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span class="text-blue-700 font-medium">Code:</span>
-                <span class="ml-2 text-blue-900" id="current-tree-code">-</span>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Left: Current Info & Form -->
+            <div>
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 class="font-semibold text-blue-900 mb-3">📋 Current Information</h4>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                  <div><span class="text-blue-700">Code:</span> <strong id="current-tree-code">-</strong></div>
+                  <div><span class="text-blue-700">Status:</span> <span id="current-tree-status">-</span></div>
+                  <div><span class="text-blue-700">Health:</span> <span id="current-tree-health">-</span></div>
+                  <div><span class="text-blue-700">Height:</span> <span id="current-tree-height">-</span></div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-blue-200 text-sm">
+                  <div class="text-blue-800"><strong>Last Updated:</strong> <span id="last-updated-time">-</span></div>
+                  <div class="text-blue-600 text-xs mt-1">By: <span id="last-updated-by">-</span></div>
+                </div>
               </div>
-              <div>
-                <span class="text-blue-700 font-medium">Status:</span>
-                <span class="ml-2" id="current-tree-status">-</span>
-              </div>
-              <div>
-                <span class="text-blue-700 font-medium">Health:</span>
-                <span class="ml-2 font-semibold" id="current-tree-health">-</span>
-              </div>
-              <div>
-                <span class="text-blue-700 font-medium">Height:</span>
-                <span class="ml-2" id="current-tree-height">-</span>
-              </div>
-              <div class="col-span-2">
-                <span class="text-blue-700 font-medium">Notes:</span>
-                <span class="ml-2 text-blue-900" id="current-tree-notes">-</span>
+
+              <form id="update-form">
+                <input type="hidden" id="update-tree-code">
+                <div class="mb-4">
+                  <label class="block text-sm font-medium mb-2">New Status *</label>
+                  <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required onchange="handleStatusChange()">
+                    <option value="SEHAT">🌿 SEHAT</option>
+                    <option value="DIPUPUK">💊 DIPUPUK</option>
+                    <option value="DIPANTAU">👁️ DIPANTAU</option>
+                    <option value="SAKIT">⚠️ SAKIT</option>
+                    <option value="MATI">💀 MATI</option>
+                  </select>
+                </div>
+                <div class="mb-4" id="health-input-container">
+                  <label class="block text-sm font-medium mb-2">New Health Condition *</label>
+                  <select id="health-condition" class="w-full px-4 py-2 border rounded-lg" required onchange="updateHealthScore()">
+                    <option value="100">⭐ Sangat Sehat (95-100%)</option>
+                    <option value="85">👍 Sehat (80-90%)</option>
+                    <option value="70">😐 Cukup Sehat (60-75%)</option>
+                    <option value="50">😟 Kurang Sehat (40-55%)</option>
+                    <option value="25">😢 Sakit (20-30%)</option>
+                    <option value="10">💀 Sangat Sakit (5-15%)</option>
+                  </select>
+                  <p class="text-sm text-gray-500 mt-1">Health: <strong id="health-display">100%</strong></p>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-sm font-medium mb-2">Notes</label>
+                  <textarea id="update-notes" rows="2" class="w-full px-4 py-2 border rounded-lg"></textarea>
+                </div>
+                <div class="flex space-x-3">
+                  <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Update</button>
+                  <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Right: History -->
+            <div>
+              <div class="bg-gray-50 border rounded-lg p-4">
+                <h4 class="font-semibold mb-3">📜 Update History</h4>
+                <div id="update-history" class="space-y-3 max-h-96 overflow-y-auto">Loading...</div>
               </div>
             </div>
           </div>
-
-          <form id="update-form">
-            <input type="hidden" id="update-tree-code">
-            
-            <div class="mb-4">
-              <label class="block text-sm font-medium mb-2">New Status *</label>
-              <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required onchange="handleStatusChange()">
-                <option value="SEHAT">🌿 SEHAT (Healthy)</option>
-                <option value="DIPUPUK">💊 DIPUPUK (Fertilized)</option>
-                <option value="DIPANTAU">👁️ DIPANTAU (Monitored)</option>
-                <option value="SAKIT">⚠️ SAKIT (Sick)</option>
-                <option value="MATI">💀 MATI (Dead)</option>
-              </select>
-            </div>
-
-            <div class="mb-4" id="health-input-container">
-              <label class="block text-sm font-medium mb-2">New Health Condition *</label>
-              <select id="health-condition" class="w-full px-4 py-2 border rounded-lg" required onchange="updateHealthScore()">
-                <option value="100">⭐ Sangat Sehat (95-100%)</option>
-                <option value="85">👍 Sehat (80-90%)</option>
-                <option value="70">😐 Cukup Sehat (60-75%)</option>
-                <option value="50">😟 Kurang Sehat (40-55%)</option>
-                <option value="25">😢 Sakit (20-30%)</option>
-                <option value="10">💀 Sangat Sakit (5-15%)</option>
-              </select>
-              <p class="text-sm text-gray-500 mt-1">Health Score: <strong id="health-display">100%</strong></p>
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-sm font-medium mb-2">Additional Notes (Optional)</label>
-              <textarea id="update-notes" rows="3" class="w-full px-4 py-2 border rounded-lg" placeholder="Tambahkan catatan perubahan..."></textarea>
-            </div>
-
-            <div class="flex space-x-3">
-              <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                Update Tree
-              </button>
-              <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-                Cancel
-              </button>
-            </div>
-          </form>
         </div>
       </div>
 
-      <!-- Delete Confirmation Modal -->
+      <!-- Delete Modal -->
       <div id="delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
           <h3 class="text-xl font-bold text-red-600 mb-4">⚠️ Confirm Delete</h3>
-          <p class="text-gray-700 mb-2">Are you sure you want to delete this tree?</p>
-          <div class="bg-red-50 border border-red-200 rounded p-3 mb-4">
-            <p class="text-sm text-red-800"><strong>Code:</strong> <span id="delete-tree-code">-</span></p>
-            <p class="text-sm text-red-600 mt-2">⚠️ This action cannot be undone!</p>
-          </div>
+          <p class="mb-2">Delete tree <strong id="delete-tree-code">-</strong>?</p>
+          <p class="text-sm text-red-600 mb-4">This cannot be undone!</p>
           <div class="flex space-x-3">
-            <button onclick="executeDelete()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-              Yes, Delete
-            </button>
-            <button onclick="closeDeleteModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
-              Cancel
-            </button>
+            <button onclick="executeDelete()" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Yes, Delete</button>
+            <button onclick="closeDeleteModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
           </div>
         </div>
       </div>
@@ -134,23 +122,16 @@ function renderTreeList() {
 
   render(html);
   loadTrees();
-
-  // Setup update form handler
   setTimeout(() => {
     const form = document.getElementById('update-form');
-    if (form) {
-      form.addEventListener('submit', handleUpdateSubmit);
-    }
+    if (form) form.addEventListener('submit', handleUpdateSubmit);
   }, 100);
 }
 
 function handleStatusChange() {
   const status = document.getElementById('update-status').value;
   const healthContainer = document.getElementById('health-input-container');
-  const healthCondition = document.getElementById('health-condition');
-
   if (status === 'MATI') {
-    // Auto-set to 0 for dead trees
     healthContainer.classList.add('hidden');
     document.getElementById('health-display').textContent = '0%';
   } else {
@@ -160,120 +141,120 @@ function handleStatusChange() {
 }
 
 function updateHealthScore() {
-  const condition = document.getElementById('health-condition').value;
-  document.getElementById('health-display').textContent = condition + '%';
+  const val = document.getElementById('health-condition').value;
+  document.getElementById('health-display').textContent = val + '%';
 }
 
 async function loadTrees() {
   const canEdit = Auth.canEdit();
   const canDelete = Auth.canDelete();
-
   try {
     const response = await API.trees.list();
     if (response.success && response.data) {
       const trees = response.data;
-
-      document.getElementById('total-count').textContent = `${trees.length} trees found`;
-
+      document.getElementById('total-count').textContent = `${trees.length} trees`;
       const html = `
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Health</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Height</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diameter</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+        <table class="min-w-full divide-y">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Health</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Height</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diameter</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y">
+            ${trees.map(tree => `
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium">${tree.code}</td>
+                <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span></td>
+                <td class="px-6 py-4"><span class="font-medium text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span></td>
+                <td class="px-6 py-4">${tree.height_meters}m</td>
+                <td class="px-6 py-4">${tree.diameter_cm}cm</td>
+                <td class="px-6 py-4 text-sm max-w-xs truncate">${tree.notes || '-'}</td>
+                <td class="px-6 py-4 text-sm space-x-2">
+                  ${canEdit ? `<button onclick="openUpdateModal('${tree.code}')" class="text-green-600 hover:text-green-800 font-medium">Update</button>` : ''}
+                  ${canDelete ? `<button onclick="confirmDeleteTree('${tree.code}')" class="text-red-600 hover:text-red-800 font-medium">Delete</button>` : ''}
+                </td>
               </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              ${trees.map(tree => `
-                <tr class="hover:bg-gray-50">
-                  <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${tree.code}</td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-3 py-1 rounded-full text-sm font-medium badge-${tree.status.toLowerCase()}">${tree.status}</span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600 font-medium">
-                      ${tree.health_score}%
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-600">${tree.height_meters}m</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-600">${tree.diameter_cm}cm</td>
-                  <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate">${tree.notes || '-'}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                    ${canEdit ? `<button onclick="openUpdateModal('${tree.code}')" class="text-green-600 hover:text-green-800 font-medium">Update</button>` : ''}
-                    ${canDelete ? `<button onclick="confirmDeleteTree('${tree.code}')" class="text-red-600 hover:text-red-800 font-medium">Delete</button>` : ''}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+            `).join('')}
+          </tbody>
+        </table>
       `;
-
       document.getElementById('tree-list-content').innerHTML = html;
     }
   } catch (error) {
-    document.getElementById('tree-list-content').innerHTML =
-      '<p class="text-red-600">Failed to load trees. Please try again.</p>';
+    document.getElementById('tree-list-content').innerHTML = '<p class="text-red-600">Failed to load trees</p>';
   }
 }
 
 async function openUpdateModal(code) {
   try {
-    // Load tree data
     showLoading(true);
     const response = await API.trees.get(code);
-
     if (response.success && response.data) {
       const tree = response.data;
-
-      // Set hidden code
       document.getElementById('update-tree-code').value = code;
-
-      // Display current tree info
       document.getElementById('current-tree-code').textContent = tree.code;
-      document.getElementById('current-tree-status').innerHTML =
-        `<span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span>`;
-      document.getElementById('current-tree-health').textContent = tree.health_score + '%';
-      document.getElementById('current-tree-health').className =
-        `ml-2 font-semibold text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600`;
+      document.getElementById('current-tree-status').innerHTML = `<span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span>`;
+      document.getElementById('current-tree-health').innerHTML = `<span class="font-semibold text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span>`;
       document.getElementById('current-tree-height').textContent = tree.height_meters + 'm';
-      document.getElementById('current-tree-notes').textContent = tree.notes || 'No notes';
 
-      // Pre-fill form with current values
+      // Last updated
+      const updated = new Date(tree.updated_at);
+      const now = new Date();
+      const diff = now - updated;
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      let ago = mins < 1 ? 'Just now' : mins < 60 ? `${mins} mins ago` : hours < 24 ? `${hours} hours ago` : `${days} days ago`;
+      document.getElementById('last-updated-time').textContent = ago;
+      document.getElementById('last-updated-by').textContent = tree.registered_by || 'System';
+
       document.getElementById('update-status').value = tree.status;
-
-      // Set health condition based on current health score
-      let healthCondition = '100';
-      if (tree.health_score >= 95) healthCondition = '100';
-      else if (tree.health_score >= 80) healthCondition = '85';
-      else if (tree.health_score >= 60) healthCondition = '70';
-      else if (tree.health_score >= 40) healthCondition = '50';
-      else if (tree.health_score >= 20) healthCondition = '25';
-      else healthCondition = '10';
-
-      document.getElementById('health-condition').value = healthCondition;
+      let health = tree.health_score >= 95 ? '100' : tree.health_score >= 80 ? '85' : tree.health_score >= 60 ? '70' : tree.health_score >= 40 ? '50' : tree.health_score >= 20 ? '25' : '10';
+      document.getElementById('health-condition').value = health;
       updateHealthScore();
 
-      // Handle MATI status
       if (tree.status === 'MATI') {
         document.getElementById('health-input-container').classList.add('hidden');
         document.getElementById('health-display').textContent = '0%';
       }
 
-      // Show modal
+      loadUpdateHistory(code);
       document.getElementById('update-modal').classList.remove('hidden');
     }
-  } catch (error) {
-    showToast('Failed to load tree data', 'error');
+  } catch (e) {
+    showToast('Failed to load tree', 'error');
   } finally {
     showLoading(false);
   }
+}
+
+function loadUpdateHistory(code) {
+  document.getElementById('update-history').innerHTML = `
+    <div class="text-sm space-y-2">
+      <div class="border-l-2 border-green-500 pl-3 py-2">
+        <div class="font-medium text-green-700">🌿 SEHAT</div>
+        <div class="text-xs text-gray-600">Health: 95% • "Recovering well"</div>
+        <div class="text-xs text-gray-500 mt-1">2 days ago • USR001</div>
+      </div>
+      <div class="border-l-2 border-purple-500 pl-3 py-2">
+        <div class="font-medium text-purple-700">💊 DIPUPUK</div>
+        <div class="text-xs text-gray-600">Health: 85% • "Applied fertilizer"</div>
+        <div class="text-xs text-gray-500 mt-1">5 days ago • USR002</div>
+      </div>
+      <div class="border-l-2 border-gray-400 pl-3 py-2">
+        <div class="font-medium">🌱 Registered</div>
+        <div class="text-xs text-gray-600">Initial health: 100%</div>
+        <div class="text-xs text-gray-500 mt-1">1 week ago • USR001</div>
+      </div>
+    </div>
+    <p class="text-xs text-gray-400 text-center mt-3 pt-2 border-t">ℹ️ Mock data - Full API integration coming soon</p>
+  `;
 }
 
 function closeUpdateModal() {
@@ -283,34 +264,20 @@ function closeUpdateModal() {
 
 async function handleUpdateSubmit(e) {
   e.preventDefault();
-
   const code = document.getElementById('update-tree-code').value;
   const status = document.getElementById('update-status').value;
+  const health = status === 'MATI' ? 0 : parseInt(document.getElementById('health-condition').value);
   const notes = document.getElementById('update-notes').value;
-
-  // Get health score based on status
-  let healthScore;
-  if (status === 'MATI') {
-    healthScore = 0;
-  } else {
-    healthScore = parseInt(document.getElementById('health-condition').value);
-  }
-
   try {
     showLoading(true);
-    const response = await API.trees.updateStatus(code, {
-      status: status,
-      health_score: healthScore,
-      notes: notes
-    });
-
+    const response = await API.trees.updateStatus(code, { status, health_score: health, notes });
     if (response.success) {
-      showToast('Tree status updated!', 'success');
+      showToast('Updated!', 'success');
       closeUpdateModal();
-      loadTrees(); // Reload list
+      loadTrees();
     }
-  } catch (error) {
-    showToast(error.message || 'Update failed', 'error');
+  } catch (e) {
+    showToast(e.message || 'Update failed', 'error');
   } finally {
     showLoading(false);
   }
@@ -327,18 +294,16 @@ function closeDeleteModal() {
 
 async function executeDelete() {
   const code = document.getElementById('delete-tree-code').textContent;
-
   try {
     showLoading(true);
     const response = await API.trees.delete(code);
-
     if (response.success) {
-      showToast('Tree deleted successfully', 'success');
+      showToast('Deleted!', 'success');
       closeDeleteModal();
-      loadTrees(); // Reload list
+      loadTrees();
     }
-  } catch (error) {
-    showToast(error.message || 'Delete failed', 'error');
+  } catch (e) {
+    showToast(e.message || 'Delete failed', 'error');
   } finally {
     showLoading(false);
   }
