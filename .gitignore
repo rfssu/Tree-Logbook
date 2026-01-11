@@ -4,6 +4,7 @@ go.sum
 coverage.html
 coverage.profile
 .env
+.env.backup
 __debug_bin*
 var
 etc
@@ -31,4 +32,10 @@ test_*.go
 *.sawit.wal
 sawitdb-server/tree_logbook.sawit*
 sawitdb-server/data/
+
+# Node.js dependencies
+node_modules/
+*.log
+package-lock.json
+
 verify_*.go
