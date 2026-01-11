@@ -91,9 +91,13 @@ func (r *TreeRepository) FindByID(ctx context.Context, id string) (*tree.Tree, e
 	return trees[0], nil
 }
 
-// FindAll retrieves all trees
-func (r *TreeRepository) FindAll(ctx context.Context) ([]*tree.Tree, error) {
+// FindAll retrieves trees with optional filter
+func (r *TreeRepository) FindAll(ctx context.Context, filter tree.TreeFilter) ([]*tree.Tree, error) {
+	// Build AQL query with filters
 	aql := "PANEN * DARI trees"
+
+	// TODO: Add WHERE clauses based on filter
+	// For now, return all trees
 
 	result, err := r.client.Query(ctx, aql)
 	if err != nil {
@@ -101,6 +105,97 @@ func (r *TreeRepository) FindAll(ctx context.Context) ([]*tree.Tree, error) {
 	}
 
 	return r.parseTreeResults(result)
+}
+
+// UpdateStatus updates tree status and health score
+func (r *TreeRepository) UpdateStatus(ctx context.Context, id string, status tree.TreeStatus, healthScore int) error {
+	aql := fmt.Sprintf(`
+		PUPUK trees DENGAN
+			status='%s',
+			health_score=%d,
+			updated_at='%s'
+		DIMANA id='%s'
+	`,
+		string(status), healthScore,
+		time.Now().UTC().Format(time.RFC3339),
+		id,
+	)
+
+	_, err := r.client.Query(ctx, aql)
+	if err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
+
+	return nil
+}
+
+// GetNextCode generates next C-code (C001, C002, etc.)
+func (r *TreeRepository) GetNextCode(ctx context.Context) (string, error) {
+	// Query to get max code
+	aql := "PANEN code DARI trees"
+
+	result, err := r.client.Query(ctx, aql)
+	if err != nil {
+		return "", fmt.Errorf("failed to query codes: %w", err)
+	}
+
+	// Parse codes and find max number
+	maxNum := 0
+	if result != nil {
+		resultJSON, _ := json.Marshal(result)
+		var codes []map[string]interface{}
+		json.Unmarshal(resultJSON, &codes)
+
+		for _, item := range codes {
+			if codeVal, ok := item["code"]; ok {
+				if code, ok := codeVal.(string); ok && len(code) > 1 && code[0] == 'C' {
+					var num int
+					fmt.Sscanf(code, "C%d", &num)
+					if num > maxNum {
+						maxNum = num
+					}
+				}
+			}
+		}
+	}
+
+	// Generate next code
+	nextCode := fmt.Sprintf("C%03d", maxNum+1)
+	return nextCode, nil
+}
+
+// CountByLocation counts trees in a location
+func (r *TreeRepository) CountByLocation(ctx context.Context, locationID string) (int64, error) {
+	aql := fmt.Sprintf("PANEN * DARI trees DIMANA location_id='%s'", locationID)
+
+	result, err := r.client.Query(ctx, aql)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count trees: %w", err)
+	}
+
+	trees, err := r.parseTreeResults(result)
+	if err != nil {
+		return 0, err
+	}
+
+	return int64(len(trees)), nil
+}
+
+// CountByStatus counts trees by status
+func (r *TreeRepository) CountByStatus(ctx context.Context, status tree.TreeStatus) (int64, error) {
+	aql := fmt.Sprintf("PANEN * DARI trees DIMANA status='%s'", string(status))
+
+	result, err := r.client.Query(ctx, aql)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count trees: %w", err)
+	}
+
+	trees, err := r.parseTreeResults(result)
+	if err != nil {
+		return 0, err
+	}
+
+	return int64(len(trees)), nil
 }
 
 // Update updates an existing tree
