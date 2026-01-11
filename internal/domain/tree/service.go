@@ -191,6 +191,10 @@ func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newS
 	}
 
 	// 6. ✅ NEW: Insert monitoring log to track this change
+	now := time.Now()
+	fmt.Printf("⏰ Creating monitoring log for tree %s (status: %s, health: %d)\n", tree.Code, newStatus, healthScore)
+	fmt.Printf("🕐 Current time: %s\n", now.Format("2006-01-02 15:04:05"))
+
 	monitoringLog := &MonitoringLog{
 		ID:             uuid.New().String(),
 		TreeCode:       tree.Code,
@@ -198,13 +202,17 @@ func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newS
 		HealthScore:    healthScore,
 		Notes:          notes,
 		MonitoredBy:    tree.RegisteredBy, // TODO: Get from auth context
-		MonitoringDate: time.Now(),
+		MonitoringDate: now,
 	}
+
+	fmt.Printf("📅 MonitoringDate being saved: %s\n", monitoringLog.MonitoringDate.Format("2006-01-02 15:04:05"))
 
 	if err := s.monitoringRepo.CreateLog(ctx, monitoringLog); err != nil {
 		// Log error but don't fail the update
 		// Tree update succeeded, logging is secondary
-		fmt.Printf("Warning: failed to create monitoring log: %v\n", err)
+		fmt.Printf("❌ ERROR: Failed to create monitoring log: %v\n", err)
+	} else {
+		fmt.Printf("✅ Successfully created monitoring log for %s\n", tree.Code)
 	}
 
 	return nil

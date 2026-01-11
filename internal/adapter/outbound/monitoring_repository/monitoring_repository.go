@@ -83,6 +83,12 @@ func (r *MonitoringRepository) GetLogsByTreeCode(ctx context.Context, treeCode s
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 
+	// DEBUG: Log what we're returning
+	if len(logs) > 0 {
+		fmt.Printf("🔍 First log monitor_date from DB: '%s'\n", logs[0].MonitorDate)
+		fmt.Printf("🔍 First log created_at from DB: '%s'\n", logs[0].CreatedAt)
+	}
+
 	return logs, nil
 }
 
@@ -112,19 +118,19 @@ func (r *MonitoringRepository) CreateLog(ctx context.Context, log *tree.Monitori
 			height_meters, diameter_cm, observations, actions_taken, 
 			monitored_by, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+		VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, $8, $9, NOW())
 	`
 
 	_, err = r.db.ExecContext(ctx, query,
 		log.ID,
 		treeID,
-		log.MonitoringDate,
+		// $3 is NOW() - PostgreSQL current timestamp!
 		string(log.Status),
 		log.HealthScore,
-		heightMeters,    // Added: from tree's current dimensions
-		diameterCm,      // Added: from tree's current dimensions
-		log.Notes,       // Maps to observations
-		"Status update", // Added: default action description
+		heightMeters,
+		diameterCm,
+		log.Notes,
+		"Dashboard status update",
 		log.MonitoredBy,
 	)
 
