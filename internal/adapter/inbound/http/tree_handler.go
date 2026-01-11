@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"prabogo/internal/cache"
 	"prabogo/internal/domain/auth"
 	"prabogo/internal/domain/tree"
 	"prabogo/utils/activity"
@@ -114,11 +115,27 @@ func (h *TreeHandler) CreateTree(c *fiber.Ctx) error {
 	})
 }
 
-// GetTree handles GET /api/trees/:code
+// GetTree handles GET /api/trees/:code with caching
 func (h *TreeHandler) GetTree(c *fiber.Ctx) error {
 	ctx := activity.NewContext(c.Path())
 	code := c.Params("code")
 
+	// Try cache first (Gib.Run - ~2-5ms)
+	var cachedTree tree.Tree
+	cacheHit, _ := cache.GetCachedTree(ctx, code, &cachedTree)
+
+	if cacheHit {
+		// Increment scan counter
+		cache.IncrementScanCount(ctx, code)
+
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    cachedTree,
+			"source":  "cache", // Debug: show cache hit
+		})
+	}
+
+	// Cache MISS - query database
 	response, err := h.usecase.GetTreeByCode(ctx, code)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -127,9 +144,17 @@ func (h *TreeHandler) GetTree(c *fiber.Ctx) error {
 		})
 	}
 
+	// Store in cache for 5 minutes
+	cache.CacheTree(ctx, code, response, 5*time.Minute)
+
+	// Increment scan counter
+	cache.IncrementScanCount(ctx, code)
+
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data":    response,
+		"source":  "database", // Debug: show cache miss
+		"cached":  true,       // Now cached for next request
 	})
 }
 
@@ -203,6 +228,9 @@ func (h *TreeHandler) UpdateTreeStatus(c *fiber.Ctx) error {
 			"error":   err.Error(),
 		})
 	}
+
+	// Invalidate cache after update
+	cache.InvalidateTree(ctx, code)
 
 	return c.JSON(fiber.Map{
 		"success": true,

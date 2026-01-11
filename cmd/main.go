@@ -17,6 +17,7 @@ import (
 	"prabogo/internal/adapter/outbound/sawit_repository"
 	"prabogo/internal/adapter/outbound/tree_repository"
 	"prabogo/internal/adapter/outbound/user_repository"
+	"prabogo/internal/cache"
 	"prabogo/internal/domain/auth"
 	"prabogo/internal/domain/tree"
 	"prabogo/utils/database"
@@ -28,6 +29,11 @@ func main() {
 
 	ctx := context.Background()
 
+	// Initialize Gib.Run cache
+	if err := cache.InitGibRun(); err != nil {
+		fmt.Printf("⚠️ Warning: Failed to initialize cache: %v\n", err)
+		fmt.Println("   Continuing without cache (direct database queries)")
+	}
 	// Choose database: SawitDB or PostgreSQL
 	useSawitDB := os.Getenv("USE_SAWITDB") == "true"
 
