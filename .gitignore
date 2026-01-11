@@ -10,3 +10,19 @@ etc
 cover 
 cover.out
 .DS_Store
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Backup files
+*.old
+*.bak
+*.tmp
+
+# Debug/test scripts (optional - keep if needed)
+debug_*.go
+test_*.go
+verify_*.go

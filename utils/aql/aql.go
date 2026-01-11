@@ -97,7 +97,15 @@ func joinValues(items []interface{}) string {
 		if i > 0 {
 			result += ", "
 		}
-		result += fmt.Sprintf("'%v'", item)
+		// Only quote strings, not numbers or bools
+		switch v := item.(type) {
+		case string:
+			result += fmt.Sprintf("'%v'", v)
+		case int, int32, int64, float32, float64, bool:
+			result += fmt.Sprintf("%v", v)
+		default:
+			result += fmt.Sprintf("'%v'", v)
+		}
 	}
 	return result
 }
