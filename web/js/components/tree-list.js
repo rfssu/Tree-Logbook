@@ -1,4 +1,9 @@
 // Tree List Component with Smart Health Input & History
+// Global state for search and filter
+let currentSearch = '';
+let currentFilter = 'ALL';
+let currentSort = { column: 'code', direction: 'asc' };
+
 function renderTreeList() {
   const canEdit = Auth.canEdit();
   const canDelete = Auth.canDelete();
@@ -23,6 +28,33 @@ function renderTreeList() {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="bg-white rounded-lg shadow">
           <div class="p-6">
+            <!-- Search & Filter Controls -->
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+              <div class="flex-1">
+                <input 
+                  type="text" 
+                  id="tree-search" 
+                  placeholder="🔍 Search by tree code or species..." 
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  onkeyup="handleSearch(this.value)"
+                >
+              </div>
+              <div class="w-full md:w-48">
+                <select 
+                  id="status-filter" 
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                  onchange="handleFilter(this.value)"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="SEHAT">🌿 Sehat</option>
+                  <option value="DIPUPUK">💊 Dipupuk</option>
+                  <option value="DIPANTAU">👁️ Dipantau</option>
+                  <option value="SAKIT">⚠️ Sakit</option>
+                  <option value="MATI">💀 Mati</option>
+                </select>
+              </div>
+            </div>
+
             <div class="flex justify-between items-center mb-4">
               <h2 class="text-xl font-semibold">Tree Inventory</h2>
               <span class="text-sm text-gray-500" id="total-count">Loading...</span>
@@ -35,8 +67,8 @@ function renderTreeList() {
       </div>
 
       <!-- Update Modal -->
-      <div id="update-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-        <div class="bg-white rounded-lg p-6 max-w-6xl w-full my-8">
+      <div id="update-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto" onclick="handleBackdropClick(event)">
+        <div class="bg-white rounded-lg p-6 max-w-6xl w-full my-8" onclick="event.stopPropagation()">
           <div class="flex justify-between items-start mb-4">
             <h3 class="text-xl font-bold">Update Tree Status</h3>
             <button onclick="closeUpdateModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
@@ -63,13 +95,26 @@ function renderTreeList() {
                 <input type="hidden" id="update-tree-code">
                 <div class="mb-4">
                   <label class="block text-sm font-medium mb-2">Status/Kondisi Pohon *</label>
-                  <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required>
+                  <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required onchange="updateHealthScoreDefault()">
                     <option value="SEHAT">🌿 Sehat</option>
                     <option value="DIPUPUK">💊 Dipupuk</option>
                     <option value="DIPANTAU">👁️ Dipantau</option>
                     <option value="SAKIT">⚠️ Sakit</option>
                     <option value="MATI">💀 Mati</option>
                   </select>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-sm font-medium mb-2">Health Score (0-100%) *</label>
+                  <input 
+                    type="number" 
+                    id="update-health-score"
+                    min="0" 
+                    max="100" 
+                    value="90"
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500"
+                    required
+                  >
+                  <p class="text-xs text-gray-500 mt-1">Field assessment (auto-filled based on status, editable)</p>
                 </div>
                 <div class="mb-4">
                   <label class="block text-sm font-medium mb-2">Catatan</label>
@@ -116,6 +161,7 @@ function renderTreeList() {
   }, 100);
 }
 
+
 // Helper: Map species ID to common name
 function getSpeciesName(speciesId) {
   const speciesMap = {
@@ -134,18 +180,75 @@ async function loadTrees() {
   try {
     const response = await API.trees.list();
     if (response.success && response.data) {
-      const trees = response.data;
-      document.getElementById('total-count').textContent = `${trees.length} trees`;
+      let trees = response.data;
+
+      // Apply search filter
+      if (currentSearch) {
+        const searchLower = currentSearch.toLowerCase();
+        trees = trees.filter(tree =>
+          tree.code.toLowerCase().includes(searchLower) ||
+          getSpeciesName(tree.species_id).toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Apply status filter
+      if (currentFilter !== 'ALL') {
+        trees = trees.filter(tree => tree.status === currentFilter);
+      }
+
+      // Apply sorting
+      trees.sort((a, b) => {
+        let aVal = a[currentSort.column];
+        let bVal = b[currentSort.column];
+
+        // Special handling for species name
+        if (currentSort.column === 'species') {
+          aVal = getSpeciesName(a.species_id);
+          bVal = getSpeciesName(b.species_id);
+        }
+
+        // Special handling for updated_at
+        if (currentSort.column === 'updated_at') {
+          aVal = new Date(a.updated_at);
+          bVal = new Date(b.updated_at);
+        }
+
+        if (currentSort.direction === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+
+      document.getElementById('total-count').textContent = `${trees.length} tree${trees.length !== 1 ? 's' : ''}`;
+
+      const getSortIcon = (column) => {
+        if (currentSort.column !== column) return '⇅';
+        return currentSort.direction === 'asc' ? '↑' : '↓';
+      };
+
       const html = `
         <table class="min-w-full divide-y">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Pohon</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Height</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diameter</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="handleSort('code')">
+                Code ${getSortIcon('code')}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="handleSort('species')">
+                Nama Pohon ${getSortIcon('species')}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="handleSort('status')">
+                Status ${getSortIcon('status')}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="handleSort('height_meters')">
+                Height ${getSortIcon('height_meters')}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="handleSort('diameter_cm')">
+                Diameter ${getSortIcon('diameter_cm')}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100" onclick="handleSort('updated_at')">
+                Last Updated ${getSortIcon('updated_at')}
+              </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
@@ -153,6 +256,18 @@ async function loadTrees() {
             ${trees.map(tree => {
         const isDead = tree.status === 'MATI';
         const rowClass = isDead ? 'bg-gray-100 opacity-75' : 'hover:bg-gray-50';
+
+        // Format last updated timestamp - ALWAYS show date + time
+        const updated = new Date(tree.updated_at);
+        const day = String(updated.getDate()).padStart(2, '0');
+        const month = String(updated.getMonth() + 1).padStart(2, '0');
+        const year = updated.getFullYear();
+        const hour = String(updated.getHours()).padStart(2, '0');
+        const minute = String(updated.getMinutes()).padStart(2, '0');
+        const second = String(updated.getSeconds()).padStart(2, '0');
+
+        const lastUpdated = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
+
         return `
               <tr class="${rowClass}">
                 <td class="px-6 py-4 font-medium ${isDead ? 'text-gray-500' : ''}">${tree.code}</td>
@@ -160,7 +275,7 @@ async function loadTrees() {
                 <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span></td>
                 <td class="px-6 py-4 ${isDead ? 'text-gray-500' : ''}">${tree.height_meters}m</td>
                 <td class="px-6 py-4 ${isDead ? 'text-gray-500' : ''}">${tree.diameter_cm}cm</td>
-                <td class="px-6 py-4 text-sm max-w-xs truncate ${isDead ? 'text-gray-400' : ''}">${tree.notes || '-'}</td>
+                <td class="px-6 py-4 text-sm ${isDead ? 'text-gray-400' : 'text-gray-600'}">${lastUpdated}</td>
                 <td class="px-6 py-4 text-sm space-x-2">
                   ${isDead
             ? `<button onclick="openViewModal('${tree.code}')" class="text-gray-600 hover:text-gray-800 font-medium">View</button>`
@@ -179,6 +294,50 @@ async function loadTrees() {
   }
 }
 
+// Search handler
+function handleSearch(value) {
+  currentSearch = value;
+  loadTrees();
+}
+
+// Filter handler
+function handleFilter(value) {
+  currentFilter = value;
+  loadTrees();
+}
+
+// Sort handler
+function handleSort(column) {
+  if (currentSort.column === column) {
+    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort.column = column;
+    currentSort.direction = 'asc';
+  }
+  loadTrees();
+}
+
+// Backdrop click handler
+function handleBackdropClick(event) {
+  if (event.target.id === 'update-modal') {
+    closeUpdateModal();
+  }
+}
+
+// Update health score default based on status
+function updateHealthScoreDefault() {
+  const status = document.getElementById('update-status').value;
+  const healthMap = {
+    'SEHAT': 90,
+    'DIPUPUK': 75,
+    'DIPANTAU': 85,
+    'SAKIT': 40,
+    'MATI': 0
+  };
+  document.getElementById('update-health-score').value = healthMap[status] || 50;
+}
+
+
 async function openUpdateModal(code) {
   try {
     showLoading(true);
@@ -191,35 +350,23 @@ async function openUpdateModal(code) {
       document.getElementById('current-tree-health').innerHTML = `<span class="font-semibold text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span>`;
       document.getElementById('current-tree-height').textContent = tree.height_meters + 'm';
 
-      // Last updated - format as absolute time
+      // Last updated - format as absolute time with full date
       const updated = new Date(tree.updated_at);
-      const now = new Date();
-      const isToday = updated.toDateString() === now.toDateString();
+      const day = String(updated.getDate()).padStart(2, '0');
+      const month = String(updated.getMonth() + 1).padStart(2, '0');
+      const year = updated.getFullYear();
+      const hour = String(updated.getHours()).padStart(2, '0');
+      const minute = String(updated.getMinutes()).padStart(2, '0');
+      const second = String(updated.getSeconds()).padStart(2, '0');
 
-      let timeDisplay;
-      if (isToday) {
-        // Today: show time only (HH:mm:ss)
-        timeDisplay = updated.toLocaleTimeString('id-ID', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        });
-      } else {
-        // Other days: show date + time
-        timeDisplay = updated.toLocaleString('id-ID', {
-          day: 'numeric',
-          month: 'short',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-      }
+      const timeDisplay = `${day}/${month}/${year} ${hour}:${minute}:${second}`;
 
       document.getElementById('last-updated-time').textContent = timeDisplay;
-      document.getElementById('last-updated-by').textContent = tree.registered_by || 'System';
+      // Use username if available, otherwise fallback to user ID
+      document.getElementById('last-updated-by').textContent = tree.registered_by_username || tree.registered_by || 'System';
 
       document.getElementById('update-status').value = tree.status;
+      document.getElementById('update-health-score').value = tree.health_score || 90;
 
       loadUpdateHistory(code);
       document.getElementById('update-modal').classList.remove('hidden');
@@ -418,21 +565,12 @@ async function handleUpdateSubmit(e) {
   e.preventDefault();
   const code = document.getElementById('update-tree-code').value;
   const status = document.getElementById('update-status').value;
+  const healthScore = parseInt(document.getElementById('update-health-score').value);
   const notes = document.getElementById('update-notes').value;
-
-  // Auto-map status to health score (internal only)
-  const healthMap = {
-    'SEHAT': 90,
-    'DIPUPUK': 75,
-    'DIPANTAU': 85,
-    'SAKIT': 40,
-    'MATI': 0
-  };
-  const health = healthMap[status] || 50;
 
   try {
     showLoading(true);
-    const response = await API.trees.updateStatus(code, { status, health_score: health, notes });
+    const response = await API.trees.updateStatus(code, { status, health_score: healthScore, notes });
     if (response.success) {
       showToast('Status berhasil diupdate!', 'success');
       closeUpdateModal();

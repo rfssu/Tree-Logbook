@@ -139,8 +139,8 @@ func (s *TreeService) RegisterNewTree(ctx context.Context, req RegisterTreeReque
 		HealthScore:  100,         // Default perfect health
 		Notes:        req.Notes,
 		RegisteredBy: req.RegisteredBy,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		CreatedAt:    time.Now().UTC(),
+		UpdatedAt:    time.Now().UTC(),
 	}
 
 	// 4. Calculate age
@@ -154,6 +154,26 @@ func (s *TreeService) RegisterNewTree(ctx context.Context, req RegisterTreeReque
 	// 6. Save to repository
 	if err := s.repo.Create(ctx, tree); err != nil {
 		return nil, fmt.Errorf("failed to create tree: %w", err)
+	}
+
+	// 7. Create initial monitoring log so tree appears in history immediately
+	now := time.Now().UTC()
+	initialLog := &MonitoringLog{
+		ID:             uuid.New().String(),
+		TreeCode:       tree.Code,
+		Status:         tree.Status,
+		HealthScore:    tree.HealthScore,
+		MonitoringDate: now,
+		MonitoredBy:    tree.RegisteredBy,
+		Notes:          "Pohon terdaftar (Initial registration)",
+	}
+
+	// Create log but don't fail tree creation if logging fails
+	if err := s.monitoringRepo.CreateLog(ctx, initialLog); err != nil {
+		// Log the error but continue - tree creation succeeded
+		fmt.Printf("⚠️ Warning: Failed to create initial monitoring log for tree %s: %v\n", tree.Code, err)
+	} else {
+		fmt.Printf("✅ Initial monitoring log created for tree %s\n", tree.Code)
 	}
 
 	return tree, nil
@@ -191,7 +211,7 @@ func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newS
 	}
 
 	// 6. ✅ NEW: Insert monitoring log to track this change
-	now := time.Now()
+	now := time.Now().UTC()
 	fmt.Printf("⏰ Creating monitoring log for tree %s (status: %s, health: %d)\n", tree.Code, newStatus, healthScore)
 	fmt.Printf("🕐 Current time: %s\n", now.Format("2006-01-02 15:04:05"))
 

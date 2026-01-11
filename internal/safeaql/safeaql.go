@@ -27,6 +27,11 @@ func NewSafeExecutor(db *sql.DB) *SafeExecutor {
 	}
 }
 
+// DB returns the underlying database connection for raw SQL queries
+func (s *SafeExecutor) DB() *sql.DB {
+	return s.db
+}
+
 // DropTableOptions configuration for BAKAR LAHAN operation
 type DropTableOptions struct {
 	TableName       string

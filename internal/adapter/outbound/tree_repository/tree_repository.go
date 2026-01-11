@@ -31,9 +31,16 @@ func (r *TreeRepositoryAdapter) Create(ctx context.Context, t *tree.Tree) error 
 			t.HeightMeters, t.DiameterCm, string(t.Status), t.HealthScore, t.Notes, t.RegisteredBy})
 }
 
-// FindByCode retrieves tree by C-code using PANEN
+// FindByCode retrieves tree by C-code with username JOIN
 func (r *TreeRepositoryAdapter) FindByCode(ctx context.Context, code string) (*tree.Tree, error) {
-	rows, err := r.safeExec.Select(ctx, "trees", "*", fmt.Sprintf("code='%s'", code))
+	// Use raw SQL to JOIN users table
+	query := `
+		SELECT t.*, u.username as registered_by_username 
+		FROM trees t 
+		LEFT JOIN users u ON t.registered_by = u.id 
+		WHERE t.code = $1
+	`
+	rows, err := r.safeExec.DB().QueryContext(ctx, query, code)
 	if err != nil {
 		return nil, err
 	}
@@ -43,12 +50,19 @@ func (r *TreeRepositoryAdapter) FindByCode(ctx context.Context, code string) (*t
 		return nil, fmt.Errorf("tree with code %s not found", code)
 	}
 
-	return r.scanTree(rows)
+	return r.scanTreeWithUsername(rows)
 }
 
-// FindByID retrieves tree by ID using PANEN
+// FindByID retrieves tree by ID with username JOIN
 func (r *TreeRepositoryAdapter) FindByID(ctx context.Context, id string) (*tree.Tree, error) {
-	rows, err := r.safeExec.Select(ctx, "trees", "*", fmt.Sprintf("id='%s'", id))
+	// Use raw SQL to JOIN users table
+	query := `
+		SELECT t.*, u.username as registered_by_username 
+		FROM trees t 
+		LEFT JOIN users u ON t.registered_by = u.id 
+		WHERE t.id = $1
+	`
+	rows, err := r.safeExec.DB().QueryContext(ctx, query, id)
 	if err != nil {
 		return nil, err
 	}
@@ -58,22 +72,29 @@ func (r *TreeRepositoryAdapter) FindByID(ctx context.Context, id string) (*tree.
 		return nil, fmt.Errorf("tree with id %s not found", id)
 	}
 
-	return r.scanTree(rows)
+	return r.scanTreeWithUsername(rows)
 }
 
-// FindAll retrieves trees with filter using PANEN
+// FindAll retrieves trees with filter and username JOIN
 func (r *TreeRepositoryAdapter) FindAll(ctx context.Context, filter tree.TreeFilter) ([]*tree.Tree, error) {
 	where := r.buildWhereClause(filter)
 
-	// Add LIMIT and OFFSET to WHERE clause
+	// Build query with JOIN
+	query := `
+		SELECT t.*, u.username as registered_by_username 
+		FROM trees t 
+		LEFT JOIN users u ON t.registered_by = u.id 
+		WHERE ` + where
+
+	// Add LIMIT and OFFSET
 	if filter.Limit > 0 {
-		where += fmt.Sprintf(" LIMIT %d", filter.Limit)
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
 	if filter.Offset > 0 {
-		where += fmt.Sprintf(" OFFSET %d", filter.Offset)
+		query += fmt.Sprintf(" OFFSET %d", filter.Offset)
 	}
 
-	rows, err := r.safeExec.Select(ctx, "trees", "*", where)
+	rows, err := r.safeExec.DB().QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +102,7 @@ func (r *TreeRepositoryAdapter) FindAll(ctx context.Context, filter tree.TreeFil
 
 	var trees []*tree.Tree
 	for rows.Next() {
-		t, err := r.scanTree(rows)
+		t, err := r.scanTreeWithUsername(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +201,7 @@ func (r *TreeRepositoryAdapter) buildWhereClause(filter tree.TreeFilter) string 
 	return where
 }
 
-// Helper: Scan database row to Tree entity
+// Helper: Scan database row to Tree entity (legacy - without username)
 func (r *TreeRepositoryAdapter) scanTree(rows *sql.Rows) (*tree.Tree, error) {
 	var t tree.Tree
 	var statusStr string
@@ -198,6 +219,37 @@ func (r *TreeRepositoryAdapter) scanTree(rows *sql.Rows) (*tree.Tree, error) {
 	// Parse planting date
 	t.PlantingDate, _ = time.Parse("2006-01-02", plantingDate)
 	t.Status = tree.TreeStatus(statusStr)
+
+	return &t, nil
+}
+
+// Helper: Scan database row to Tree entity with username JOIN
+func (r *TreeRepositoryAdapter) scanTreeWithUsername(rows *sql.Rows) (*tree.Tree, error) {
+	var t tree.Tree
+	var statusStr string
+	var plantingDate string
+	var username sql.NullString // May be NULL if user deleted
+
+	err := rows.Scan(
+		&t.ID, &t.Code, &t.SpeciesID, &t.LocationID, &plantingDate, &t.AgeYears,
+		&t.HeightMeters, &t.DiameterCm, &statusStr, &t.HealthScore, &t.Notes,
+		&t.RegisteredBy, &t.CreatedAt, &t.UpdatedAt,
+		&username, // registered_by_username from JOIN
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse planting date
+	t.PlantingDate, _ = time.Parse("2006-01-02", plantingDate)
+	t.Status = tree.TreeStatus(statusStr)
+
+	// Set username if available
+	if username.Valid {
+		t.RegisteredByUsername = username.String
+	} else {
+		t.RegisteredByUsername = "Unknown"
+	}
 
 	return &t, nil
 }
