@@ -22,7 +22,13 @@ cover.out
 *.bak
 *.tmp
 
-# Debug/test scripts (optional - keep if needed)
+# Temporary test/debug scripts
 debug_*.go
 test_*.go
+
+# SawitDB data files (Scenario B)
+*.sawit
+*.sawit.wal
+sawitdb-server/tree_logbook.sawit*
+sawitdb-server/data/
 verify_*.go
