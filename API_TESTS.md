@@ -71,8 +71,9 @@ curl -X DELETE http://localhost:8000/api/trees/C008
 
 **1. Start Server**:
 ```bash
-go run test_api_server.go
+go run cmd/main.go
 ```
+
 
 **2. Test Endpoints** (in new terminal):
 ```bash
