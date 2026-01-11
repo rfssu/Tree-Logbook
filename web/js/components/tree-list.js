@@ -64,21 +64,20 @@ function renderTreeList() {
                 <div class="mb-4">
                   <label class="block text-sm font-medium mb-2">Status/Kondisi Pohon *</label>
                   <select id="update-status" class="w-full px-4 py-2 border rounded-lg" required>
-                    <option value="SEHAT">🌿 Sehat (Health: 90%)</option>
-                    <option value="DIPUPUK">💊 Dipupuk (Health: 75%)</option>
-                    <option value="DIPANTAU">👁️ Dipantau (Health: 85%)</option>
-                    <option value="SAKIT">⚠️ Sakit (Health: 40%)</option>
-                    <option value="MATI">💀 Mati (Health: 0%)</option>
+                    <option value="SEHAT">🌿 Sehat</option>
+                    <option value="DIPUPUK">💊 Dipupuk</option>
+                    <option value="DIPANTAU">👁️ Dipantau</option>
+                    <option value="SAKIT">⚠️ Sakit</option>
+                    <option value="MATI">💀 Mati</option>
                   </select>
-                  <p class="text-xs text-gray-500 mt-1">Health score otomatis sesuai status</p>
                 </div>
                 <div class="mb-4">
                   <label class="block text-sm font-medium mb-2">Catatan</label>
                   <textarea id="update-notes" rows="3" class="w-full px-4 py-2 border rounded-lg" placeholder="Catatan monitoring (opsional)"></textarea>
                 </div>
                 <div class="flex space-x-3">
-                  <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Update</button>
-                  <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Batal</button>
+                  <button type="submit" id="update-submit-btn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Update</button>
+                  <button type="button" id="update-cancel-btn" onclick="closeUpdateModal()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">Batal</button>
                 </div>
               </form>
             </div>
@@ -117,22 +116,16 @@ function renderTreeList() {
   }, 100);
 }
 
-function handleStatusChange() {
-  const status = document.getElementById('update-status').value;
-  const healthContainer = document.getElementById('health-input-container');
-  const healthInput = document.getElementById('health-score');
-
-  if (status === 'MATI') {
-    healthInput.value = 0;
-    healthInput.disabled = true;
-    healthContainer.classList.add('opacity-50');
-  } else {
-    healthInput.disabled = false;
-    healthContainer.classList.remove('opacity-50');
-    if (healthInput.value == 0) {
-      healthInput.value = 50; // Default to 50% when enabling
-    }
-  }
+// Helper: Map species ID to common name
+function getSpeciesName(speciesId) {
+  const speciesMap = {
+    'SP001': 'Jati',
+    'SP002': 'Mahoni',
+    'SP003': 'Angsana',
+    'SP004': 'Akasia',
+    'SP005': 'Cendana'
+  };
+  return speciesMap[speciesId] || speciesId;
 }
 
 async function loadTrees() {
@@ -150,7 +143,6 @@ async function loadTrees() {
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Pohon</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Health</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Height</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diameter</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
@@ -158,21 +150,25 @@ async function loadTrees() {
             </tr>
           </thead>
           <tbody class="bg-white divide-y">
-            ${trees.map(tree => `
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 font-medium">${tree.code}</td>
-                <td class="px-6 py-4 text-sm">${getSpeciesName(tree.species_id)}</td>
+            ${trees.map(tree => {
+        const isDead = tree.status === 'MATI';
+        const rowClass = isDead ? 'bg-gray-100 opacity-75' : 'hover:bg-gray-50';
+        return `
+              <tr class="${rowClass}">
+                <td class="px-6 py-4 font-medium ${isDead ? 'text-gray-500' : ''}">${tree.code}</td>
+                <td class="px-6 py-4 text-sm ${isDead ? 'text-gray-500' : ''}">${getSpeciesName(tree.species_id)}</td>
                 <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span></td>
-                <td class="px-6 py-4"><span class="font-medium text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span></td>
-                <td class="px-6 py-4">${tree.height_meters}m</td>
-                <td class="px-6 py-4">${tree.diameter_cm}cm</td>
-                <td class="px-6 py-4 text-sm max-w-xs truncate">${tree.notes || '-'}</td>
+                <td class="px-6 py-4 ${isDead ? 'text-gray-500' : ''}">${tree.height_meters}m</td>
+                <td class="px-6 py-4 ${isDead ? 'text-gray-500' : ''}">${tree.diameter_cm}cm</td>
+                <td class="px-6 py-4 text-sm max-w-xs truncate ${isDead ? 'text-gray-400' : ''}">${tree.notes || '-'}</td>
                 <td class="px-6 py-4 text-sm space-x-2">
-                  ${canEdit ? `<button onclick="openUpdateModal('${tree.code}')" class="text-green-600 hover:text-green-800 font-medium">Update</button>` : ''}
+                  ${isDead
+            ? `<button onclick="openViewModal('${tree.code}')" class="text-gray-600 hover:text-gray-800 font-medium">View</button>`
+            : canEdit ? `<button onclick="openUpdateModal('${tree.code}')" class="text-green-600 hover:text-green-800 font-medium">Update</button>` : ''}
                   ${canDelete ? `<button onclick="confirmDeleteTree('${tree.code}')" class="text-red-600 hover:text-red-800 font-medium">Delete</button>` : ''}
                 </td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       `;
@@ -195,24 +191,35 @@ async function openUpdateModal(code) {
       document.getElementById('current-tree-health').innerHTML = `<span class="font-semibold text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span>`;
       document.getElementById('current-tree-height').textContent = tree.height_meters + 'm';
 
-      // Last updated
+      // Last updated - format as absolute time
       const updated = new Date(tree.updated_at);
       const now = new Date();
-      const diff = now - updated;
-      const mins = Math.floor(diff / 60000);
-      const hours = Math.floor(diff / 3600000);
-      const days = Math.floor(diff / 86400000);
-      let ago = mins < 1 ? 'Just now' : mins < 60 ? `${mins} mins ago` : hours < 24 ? `${hours} hours ago` : `${days} days ago`;
-      document.getElementById('last-updated-time').textContent = ago;
+      const isToday = updated.toDateString() === now.toDateString();
+
+      let timeDisplay;
+      if (isToday) {
+        // Today: show time only (HH:mm:ss)
+        timeDisplay = updated.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      } else {
+        // Other days: show date + time
+        timeDisplay = updated.toLocaleString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+      }
+
+      document.getElementById('last-updated-time').textContent = timeDisplay;
       document.getElementById('last-updated-by').textContent = tree.registered_by || 'System';
 
       document.getElementById('update-status').value = tree.status;
-      document.getElementById('health-score').value = tree.health_score;
-
-      if (tree.status === 'MATI') {
-        document.getElementById('health-score').disabled = true;
-        document.getElementById('health-input-container').classList.add('opacity-50');
-      }
 
       loadUpdateHistory(code);
       document.getElementById('update-modal').classList.remove('hidden');
@@ -223,6 +230,71 @@ async function openUpdateModal(code) {
     showLoading(false);
   }
 }
+
+// View-only modal for dead trees (read-only mode)
+async function openViewModal(code) {
+  showLoading(true);
+  try {
+    const response = await API.trees.get(code);
+    if (response.success && response.data) {
+      const tree = response.data;
+      document.getElementById('update-tree-code').value = code;
+      document.getElementById('current-tree-code').textContent = tree.code;
+      document.getElementById('current-tree-status').innerHTML = `<span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span>`;
+      document.getElementById('current-tree-health').innerHTML = `<span class="font-semibold text-gray-500">${tree.health_score}%</span>`;
+      document.getElementById('current-tree-height').textContent = tree.height_meters + 'm';
+
+      const updated = new Date(tree.updated_at);
+      const now = new Date();
+      const isToday = updated.toDateString() === now.toDateString();
+
+      let timeDisplay;
+      if (isToday) {
+        timeDisplay = updated.toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      } else {
+        timeDisplay = updated.toLocaleString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+      }
+
+      document.getElementById('last-updated-time').textContent = timeDisplay;
+      document.getElementById('last-updated-by').textContent = tree.registered_by || 'System';
+
+      const modalTitle = document.querySelector('#update-modal h3');
+      if (modalTitle) modalTitle.textContent = `View Tree - ${code} (Dead - Read Only)`;
+
+      document.getElementById('update-status').value = tree.status;
+      document.getElementById('update-notes').value = tree.notes || '';
+
+      // Disable inputs and hide buttons for dead trees
+      document.getElementById('update-status').disabled = true;
+      document.getElementById('update-notes').disabled = true;
+      const submitBtn = document.getElementById('update-submit-btn');
+      const cancelBtn = document.getElementById('update-cancel-btn');
+      if (submitBtn) submitBtn.style.display = 'none';
+      if (cancelBtn) cancelBtn.style.display = 'none'; // Hide Batal - only X button needed
+
+      loadUpdateHistory(code);
+      document.getElementById('update-modal').classList.remove('hidden');
+    }
+  } catch (e) {
+    showToast('Failed to load tree', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// Global timer for auto-refreshing timestamps
+let timestampRefreshTimer = null;
 
 async function loadUpdateHistory(code) {
   const container = document.getElementById('update-history');
@@ -250,34 +322,70 @@ async function loadUpdateHistory(code) {
         'DIPANTAU': '👁️'
       };
 
-      const html = logs.map(log => {
-        const date = new Date(log.monitor_date || log.created_at);
-        const now = new Date();
-        const diff = now - date;
-        const mins = Math.floor(diff / 60000);
-        const hours = Math.floor(diff / 3600000);
-        const days = Math.floor(diff / 86400000);
+      // Function to render history with current timestamps
+      const renderHistory = () => {
+        const html = logs.map((log, index) => {
+          // Use monitor_date (the actual monitoring date) not created_at
+          const date = new Date(log.monitor_date);
+          const now = new Date();
+          const isToday = date.toDateString() === now.toDateString();
 
-        let ago;
-        if (mins < 1) ago = 'Just now';
-        else if (mins < 60) ago = `${mins} mins ago`;
-        else if (hours < 24) ago = `${hours} hours ago`;
-        else if (days < 30) ago = `${days} days ago`;
-        else ago = date.toLocaleDateString('id-ID');
+          // Format as absolute time instead of relative
+          let timeDisplay;
+          if (isToday) {
+            // Today: show time only (HH:mm:ss)
+            timeDisplay = date.toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false
+            });
+          } else {
+            // Other days: show date + time
+            timeDisplay = date.toLocaleString('id-ID', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+          }
 
-        const color = statusColors[log.status] || 'gray';
-        const icon = statusIcons[log.status] || '📝';
+          const color = statusColors[log.status] || 'gray';
+          const icon = statusIcons[log.status] || '📝';
 
-        return `
-          <div class="border-l-2 border-${color}-500 pl-3 py-2">
-            <div class="font-medium text-${color}-700">${icon} ${log.status}</div>
-            <div class="text-xs text-gray-600">Health: ${log.health_score}%${log.observations ? ' • "' + log.observations + '"' : ''}</div>
-            <div class="text-xs text-gray-500 mt-1">${ago} • ${log.monitored_by}</div>
-          </div>
-        `;
-      }).join('');
+          return `
+            <div class="border-l-2 border-${color}-500 pl-3 py-2">
+              <div class="font-medium text-${color}-700">${icon} ${log.status}</div>
+              <div class="text-xs text-gray-600">Health: ${log.health_score}%${log.observations ? ' • "' + log.observations + '"' : ''}</div>
+              <div class="text-xs text-gray-500 mt-1" data-timestamp="${log.monitor_date}">${timeDisplay} • ${log.monitored_by}</div>
+            </div>
+          `;
+        }).join('');
 
-      container.innerHTML = `<div class="text-sm space-y-2">${html}</div>`;
+        container.innerHTML = `<div class="text-sm space-y-2">${html}</div>`;
+      };
+
+      // Initial render
+      renderHistory();
+
+      // Clear any existing timer
+      if (timestampRefreshTimer) {
+        clearInterval(timestampRefreshTimer);
+      }
+
+      // Set up auto-refresh every 30 seconds
+      timestampRefreshTimer = setInterval(() => {
+        // Only refresh if modal is still open
+        const modal = document.getElementById('update-modal');
+        if (!modal || modal.classList.contains('hidden')) {
+          clearInterval(timestampRefreshTimer);
+          timestampRefreshTimer = null;
+          return;
+        }
+        renderHistory();
+      }, 30000); // 30 seconds
+
     } else {
       container.innerHTML = '<p class="text-sm text-gray-500 text-center">No history yet</p>';
     }
@@ -289,21 +397,38 @@ async function loadUpdateHistory(code) {
 
 function closeUpdateModal() {
   document.getElementById('update-modal').classList.add('hidden');
-  document.getElementById('update-form').reset();
+
+  // Reset to editable state for next open
+  const modalTitle = document.querySelector('#update-modal h3');
+  if (modalTitle) modalTitle.textContent = 'Update Tree Status';
+
+  // Re-enable all inputs
+  document.getElementById('update-status').disabled = false;
+  document.getElementById('update-notes').disabled = false;
+  document.getElementById('update-notes').value = '';
+
+  // Show all buttons again
+  const submitBtn = document.getElementById('update-submit-btn');
+  const cancelBtn = document.getElementById('update-cancel-btn');
+  if (submitBtn) submitBtn.style.display = 'inline-block';
+  if (cancelBtn) cancelBtn.style.display = 'inline-block';
 }
 
 async function handleUpdateSubmit(e) {
   e.preventDefault();
   const code = document.getElementById('update-tree-code').value;
   const status = document.getElementById('update-status').value;
-  const health = status === 'MATI' ? 0 : parseInt(document.getElementById('health-score').value);
   const notes = document.getElementById('update-notes').value;
 
-  // Validate health score
-  if (health < 0 || health > 100) {
-    showToast('Skor kesehatan harus 0-100%', 'error');
-    return;
-  }
+  // Auto-map status to health score (internal only)
+  const healthMap = {
+    'SEHAT': 90,
+    'DIPUPUK': 75,
+    'DIPANTAU': 85,
+    'SAKIT': 40,
+    'MATI': 0
+  };
+  const health = healthMap[status] || 50;
 
   try {
     showLoading(true);
