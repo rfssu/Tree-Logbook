@@ -1,8 +1,11 @@
 const SawitDB = require('@wowoengine/sawitdb');
 const net = require('net');
+const path = require('path');
 
-// Database instance
-const db = new SawitDB('tree_logbook.sawit');
+// Database instance - use absolute path relative to this script
+const dbPath = path.join(__dirname, 'tree_logbook.sawit');
+console.log('📂 Loading database from:', dbPath);
+const db = new SawitDB(dbPath);
 
 // TCP Server
 const server = net.createServer((socket) => {

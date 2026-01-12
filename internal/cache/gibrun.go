@@ -50,6 +50,9 @@ func InitGibRun() error {
 
 // CacheTree stores tree data in cache
 func CacheTree(ctx context.Context, treeCode string, data interface{}, ttl time.Duration) error {
+	if Client == nil {
+		return nil // Gracefully skip if Redis unavailable
+	}
 	key := fmt.Sprintf("tree:%s", treeCode)
 	return Client.Gib(ctx, key).
 		Value(data).
@@ -59,6 +62,9 @@ func CacheTree(ctx context.Context, treeCode string, data interface{}, ttl time.
 
 // GetCachedTree retrieves tree from cache
 func GetCachedTree(ctx context.Context, treeCode string, dest interface{}) (bool, error) {
+	if Client == nil {
+		return false, nil // Cache miss if Redis unavailable
+	}
 	key := fmt.Sprintf("tree:%s", treeCode)
 	found, err := Client.Run(ctx, key).Bind(dest)
 	return found, err
@@ -66,18 +72,27 @@ func GetCachedTree(ctx context.Context, treeCode string, dest interface{}) (bool
 
 // InvalidateTree removes tree from cache
 func InvalidateTree(ctx context.Context, treeCode string) error {
+	if Client == nil {
+		return nil // Gracefully skip if Redis unavailable
+	}
 	key := fmt.Sprintf("tree:%s", treeCode)
 	return Client.Del(ctx, key)
 }
 
 // IncrementScanCount tracks tree scan statistics
 func IncrementScanCount(ctx context.Context, treeCode string) (int64, error) {
+	if Client == nil {
+		return 0, nil // Return 0 if Redis unavailable
+	}
 	key := fmt.Sprintf("scans:%s", treeCode)
 	return Client.Sprint(ctx, key).Incr()
 }
 
 // GetScanCount gets total scans for a tree
 func GetScanCount(ctx context.Context, treeCode string) (int64, error) {
+	if Client == nil {
+		return 0, nil // Return 0 if Redis unavailable
+	}
 	key := fmt.Sprintf("scans:%s", treeCode)
 	return Client.Sprint(ctx, key).Get()
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -188,9 +189,10 @@ func (h *TreeHandler) ListTrees(c *fiber.Ctx) error {
 
 	response, err := h.usecase.ListTrees(ctx, filter)
 	if err != nil {
+		fmt.Printf("❌ LIST TREES ERROR: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
-			"error":   "Failed to list trees",
+			"error":   fmt.Sprintf("Failed to list trees: %v", err),
 		})
 	}
 

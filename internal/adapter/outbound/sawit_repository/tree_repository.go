@@ -99,6 +99,7 @@ func (r *TreeRepository) FindAll(ctx context.Context, filter tree.TreeFilter) ([
 	// TODO: Add WHERE clauses based on filter
 	// For now, return all trees
 
+	// Execute query
 	result, err := r.client.Query(ctx, aql)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query trees: %w", err)
@@ -243,16 +244,26 @@ func (r *TreeRepository) Delete(ctx context.Context, id string) error {
 
 // parseTreeResults converts SawitDB result to tree structs
 func (r *TreeRepository) parseTreeResults(result interface{}) ([]*tree.Tree, error) {
-	// SawitDB returns []interface{} with map[string]interface{} items
-	resultJSON, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal result: %w", err)
-	}
-
 	var rawTrees []map[string]interface{}
-	err = json.Unmarshal(resultJSON, &rawTrees)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal result: %w", err)
+
+	// Check if result is already a JSON string (from TCP client)
+	if jsonStr, ok := result.(string); ok {
+		// Direct unmarshal from JSON string
+		err := json.Unmarshal([]byte(jsonStr), &rawTrees)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal JSON string: %w", err)
+		}
+	} else {
+		// SawitDB returns []interface{} with map[string]interface{} items
+		resultJSON, err := json.Marshal(result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal result: %w", err)
+		}
+
+		err = json.Unmarshal(resultJSON, &rawTrees)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal result: %w", err)
+		}
 	}
 
 	trees := make([]*tree.Tree, 0, len(rawTrees))
