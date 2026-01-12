@@ -386,7 +386,10 @@ async function openUpdateModal(code) {
       const tree = response.data;
       document.getElementById('update-tree-code').value = code;
       document.getElementById('current-tree-code').textContent = tree.code;
-      document.getElementById('current-tree-status').innerHTML = `<span class="px-2 py-1 rounded-full text-xs badge-${tree.status.toLowerCase()}">${tree.status}</span>`;
+
+      const statusValue = tree.status || 'unknown';
+      const badgeClass = `badge-${statusValue.toLowerCase()}`;
+      document.getElementById('current-tree-status').innerHTML = `<span class="px-2 py-1 rounded-full text-xs ${badgeClass}">${statusValue}</span>`;
       document.getElementById('current-tree-health').innerHTML = `<span class="font-semibold text-${tree.health_score >= 80 ? 'green' : tree.health_score >= 60 ? 'yellow' : 'red'}-600">${tree.health_score}%</span>`;
       document.getElementById('current-tree-height').textContent = tree.height_meters + 'm';
 
@@ -416,7 +419,11 @@ async function openUpdateModal(code) {
       loadUpdateHistory(code);
     }
   } catch (e) {
-    showToast('Failed to load tree', 'error');
+    console.error("Open Update Modal Error:", e);
+    // Explain specific error to user
+    const errorMsg = e.message || "Unknown error";
+    alert(`DEBUG: Failed to open modal.\nError: ${errorMsg}\nCheck Console for details.`);
+    showToast(`Failed to load tree: ${errorMsg}`, 'error');
     showLoading(false);
   }
 }

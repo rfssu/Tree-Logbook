@@ -16,6 +16,9 @@ type UserRepository interface {
 	FindByID(ctx context.Context, id string) (*User, error)
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
+	FindAll(ctx context.Context) ([]*User, error)
+	Delete(ctx context.Context, id string) error
+	Update(ctx context.Context, user *User) error
 }
 
 // AuthService handles authentication business logic
@@ -135,4 +138,24 @@ func (s *AuthService) ValidateToken(ctx context.Context, tokenString string) (*U
 	}
 
 	return user, nil
+}
+
+// GetAllUsers retrieves all users
+func (s *AuthService) GetAllUsers(ctx context.Context) ([]*User, error) {
+	return s.userRepo.FindAll(ctx)
+}
+
+// DeleteUser removes a user
+func (s *AuthService) DeleteUser(ctx context.Context, id string) error {
+	return s.userRepo.Delete(ctx, id)
+}
+
+// UpdateUserRole updates a user's role
+func (s *AuthService) UpdateUserRole(ctx context.Context, id string, role UserRole) error {
+	user, err := s.userRepo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	user.Role = role
+	return s.userRepo.Update(ctx, user)
 }

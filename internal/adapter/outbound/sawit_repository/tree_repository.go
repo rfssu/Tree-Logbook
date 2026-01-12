@@ -103,13 +103,49 @@ func (r *TreeRepository) FindAll(ctx context.Context, filter tree.TreeFilter) ([
 	// TODO: Add WHERE clauses based on filter
 	// For now, return all trees
 
-	// Execute query
+	// Execute query (Fetch ALL - avoid fragile AQL offset/filters)
 	result, err := r.client.Query(ctx, aql)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query trees: %w", err)
 	}
 
-	return r.parseTreeResults(result)
+	allTrees, err := r.parseTreeResults(result)
+	if err != nil {
+		return nil, err
+	}
+
+	// 🛡️ Robust In-Memory Filtering & Pagination
+	var filtered []*tree.Tree
+
+	for _, t := range allTrees {
+		// Filter by Location
+		if filter.LocationID != "" && t.LocationID != filter.LocationID {
+			continue
+		}
+		// Filter by Species
+		if filter.SpeciesID != "" && t.SpeciesID != filter.SpeciesID {
+			continue
+		}
+		// Filter by Status
+		if filter.Status != "" && t.Status != filter.Status {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
+
+	// Pagination logic
+	total := len(filtered)
+	start := filter.Offset
+	if start >= total {
+		return []*tree.Tree{}, nil
+	}
+
+	end := start + filter.Limit
+	if end > total {
+		end = total
+	}
+
+	return filtered[start:end], nil
 }
 
 // UpdateStatus updates tree status and health score

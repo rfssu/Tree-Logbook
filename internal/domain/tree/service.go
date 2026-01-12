@@ -65,7 +65,7 @@ type MonitoringRepository interface {
 // MonitoringLog represents a tree monitoring event
 type MonitoringLog struct {
 	ID             string
-	TreeID         string // ✅ Added TreeID so we don't need to look it up in PostgreSQL
+	TreeID         string 
 	TreeCode       string
 	Status         TreeStatus
 	HealthScore    int
@@ -182,7 +182,8 @@ func (s *TreeService) RegisterNewTree(ctx context.Context, req RegisterTreeReque
 }
 
 // UpdateTreeCondition updates tree status and health
-func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newStatus TreeStatus, healthScore int, notes string) error {
+// UpdateTreeCondition updates tree status and health
+func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newStatus TreeStatus, healthScore int, notes string, userID string) error {
 	// 1. Get existing tree
 	tree, err := s.repo.FindByCode(ctx, code)
 	if err != nil {
@@ -223,8 +224,8 @@ func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newS
 		Status:         newStatus,
 		HealthScore:    healthScore,
 		Notes:          notes,
-		MonitoredBy:    tree.RegisteredBy, // TODO: Get from auth context
-		MonitoringDate: tree.UpdatedAt,    // ✅ COPY from tree.UpdatedAt (SAME source!)
+		MonitoredBy:    userID,         // ✅ Use actual User ID
+		MonitoringDate: tree.UpdatedAt, // ✅ COPY from tree.UpdatedAt (SAME source!)
 	}
 
 	fmt.Printf("📅 MonitoringDate being saved: %s\n", monitoringLog.MonitoringDate.Format("2006-01-02 15:04:05"))

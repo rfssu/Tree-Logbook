@@ -27,6 +27,7 @@ const App = {
         Router.register('/dashboard', this.requireAuth(renderDashboard));
         Router.register('/trees', this.requireAuth(renderTreeList));
         Router.register('/trees/new', this.requireAuth(renderTreeForm));
+        Router.register('/users', this.requireAuth(renderUsersList));
     },
 
     // Middleware: require authentication

@@ -5,7 +5,10 @@ const API = {
     // Get headers with auth token
     getHeaders(includeAuth = true) {
         const headers = {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
         };
 
         if (includeAuth) {
@@ -91,5 +94,13 @@ const API = {
     // Stats endpoint
     stats: {
         get: () => API.request('/stats')
+    },
+
+    // User endpoints
+    users: {
+        list: () => API.request('/users'),
+        create: (data) => API.request('/users', { method: 'POST', body: JSON.stringify(data) }),
+        delete: (id) => API.request(`/users/${id}`, { method: 'DELETE' }),
+        updateRole: (id, role) => API.request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) })
     }
 };

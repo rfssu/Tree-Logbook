@@ -99,6 +99,7 @@ func main() {
 	// Initialize handlers
 	treeHandler := http.NewTreeHandler(treeUseCase, userRepo)
 	authHandler := http.NewAuthHandler(authService)
+	userHandler := http.NewUserHandler(authService) // User Management Handler
 	// MonitoringHandler requires concrete type (always uses PostgreSQL)
 	monitoringHandlerRepo := monitoring_repository.NewMonitoringRepository(database.InitDatabase(ctx, "postgres"))
 	monitoringHandler := http.NewMonitoringHandler(monitoringHandlerRepo, userRepo, treeRepo)
@@ -128,6 +129,7 @@ func main() {
 
 	// Register auth routes
 	authHandler.Routes(app, authMiddleware)
+	userHandler.Routes(app, authMiddleware) // Register User Routes
 
 	// Register tree routes (with auth protection)
 	treeHandler.RoutesWithAuth(app, authMiddleware)

@@ -18,21 +18,21 @@ const (
 
 // Tree entity represents a tree in the logbook
 type Tree struct {
-	ID                   string
-	Code                 string // C001, C002, etc.
-	SpeciesID            string
-	LocationID           string
-	PlantingDate         time.Time
-	AgeYears             int
-	HeightMeters         float64
-	DiameterCm           float64
-	Status               TreeStatus
-	HealthScore          int
-	Notes                string
-	RegisteredBy         string // User ID (UUID)
-	RegisteredByUsername string `json:"registered_by_username"` // Username for display
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	ID                   string     `json:"id"`
+	Code                 string     `json:"code"`
+	SpeciesID            string     `json:"species_id"`
+	LocationID           string     `json:"location_id"`
+	PlantingDate         time.Time  `json:"planting_date"`
+	AgeYears             int        `json:"age_years"`
+	HeightMeters         float64    `json:"height_meters"`
+	DiameterCm           float64    `json:"diameter_cm"`
+	Status               TreeStatus `json:"status"`
+	HealthScore          int        `json:"health_score"`
+	Notes                string     `json:"notes"`
+	RegisteredBy         string     `json:"registered_by"`
+	RegisteredByUsername string     `json:"registered_by_username"`
+	CreatedAt            time.Time  `json:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at"`
 }
 
 // Validate checks if tree entity is valid

@@ -64,8 +64,8 @@ func (uc *TreeUseCase) ListTrees(ctx context.Context, filter TreeFilter) ([]*Tre
 }
 
 // UpdateTreeStatus updates tree condition
-func (uc *TreeUseCase) UpdateTreeStatus(ctx context.Context, code string, status TreeStatus, healthScore int, notes string) error {
-	return uc.service.UpdateTreeCondition(ctx, code, status, healthScore, notes)
+func (uc *TreeUseCase) UpdateTreeStatus(ctx context.Context, code string, status TreeStatus, healthScore int, notes string, userID string) error {
+	return uc.service.UpdateTreeCondition(ctx, code, status, healthScore, notes, userID)
 }
 
 // DeleteTree removes a tree

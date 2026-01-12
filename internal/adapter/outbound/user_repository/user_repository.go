@@ -16,6 +16,8 @@ type UserRepository interface {
 	FindByUsername(ctx context.Context, username string) (*auth.User, error)
 	FindByEmail(ctx context.Context, email string) (*auth.User, error)
 	Update(ctx context.Context, user *auth.User) error
+	Delete(ctx context.Context, id string) error
+	FindAll(ctx context.Context) ([]*auth.User, error)
 }
 
 // UserRepositoryAdapter implements UserRepository using AQL
@@ -88,6 +90,30 @@ func (r *UserRepositoryAdapter) Update(ctx context.Context, u *auth.User) error 
 		u.Email, u.FullName, string(u.Role), u.IsActive)
 	where := fmt.Sprintf("id='%s'", u.ID)
 	return r.safeExec.Update(ctx, "users", set, where)
+}
+
+// Delete removes user
+func (r *UserRepositoryAdapter) Delete(ctx context.Context, id string) error {
+	return r.safeExec.Delete(ctx, "users", fmt.Sprintf("id='%s'", id))
+}
+
+// FindAll retrieves all users
+func (r *UserRepositoryAdapter) FindAll(ctx context.Context) ([]*auth.User, error) {
+	rows, err := r.safeExec.Select(ctx, "users", "*", "")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*auth.User
+	for rows.Next() {
+		u, err := r.scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
 }
 
 // Helper: Scan database row to User entity

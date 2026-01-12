@@ -137,26 +137,28 @@ func (h *TreeHandler) GetTree(c *fiber.Ctx) error {
 	code := c.Params("code")
 
 	// Try cache first (Gib.Run - ~2-5ms)
-	var cachedTree tree.Tree
-	cacheHit, _ := cache.GetCachedTree(ctx, code, &cachedTree)
+	// Try cache first (Gib.Run - ~2-5ms)
+	// Try cache first (Gib.Run - ~2-5ms)
+	// var cachedTree tree.Tree
+	// cacheHit, _ := cache.GetCachedTree(ctx, code, &cachedTree)
 
-	if cacheHit {
-		// Increment scan counter
-		cache.IncrementScanCount(ctx, code)
+	// if cacheHit {
+	// 	// Increment scan counter
+	// 	cache.IncrementScanCount(ctx, code)
 
-		return c.JSON(fiber.Map{
-			"success": true,
-			"data":    cachedTree,
-			"source":  "cache", // Debug: show cache hit
-		})
-	}
+	// 	return c.JSON(fiber.Map{
+	// 		"success": true,
+	// 		"data":    cachedTree,
+	// 		"source":  "cache", // Debug: show cache hit
+	// 	})
+	// }
 
-	// Cache MISS - query database
+	// Cache MISS -	// Get from database
 	response, err := h.usecase.GetTreeByCode(ctx, code)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"success": false,
-			"error":   "Tree not found",
+			"error":   err.Error(),
 		})
 	}
 
@@ -249,8 +251,11 @@ func (h *TreeHandler) UpdateTreeStatus(c *fiber.Ctx) error {
 		})
 	}
 
+	// Extract user ID from token
+	userID := c.Locals("userID").(string)
+
 	// Call use case
-	err := h.usecase.UpdateTreeStatus(ctx, code, tree.TreeStatus(req.Status), req.HealthScore, req.Notes)
+	err := h.usecase.UpdateTreeStatus(ctx, code, tree.TreeStatus(req.Status), req.HealthScore, req.Notes, userID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
