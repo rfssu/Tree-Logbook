@@ -3,5 +3,15 @@
     "@wowoengine/sawitdb": "^2.6.0",
     "body-parser": "^2.2.2",
     "express": "^5.2.1"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./web/css/input.css -o ./web/css/output.css",
+    "watch:css": "tailwindcss -i ./web/css/input.css -o ./web/css/output.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18"
   }
 }
