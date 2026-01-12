@@ -96,6 +96,11 @@ const Storage = {
     return role === 'admin' || role === 'editor';
   },
 
+  // Check if user can create (admin only)
+  canCreate() {
+    return this.isAdmin();
+  },
+
   // Check if user can delete
   canDelete() {
     return this.isAdmin();

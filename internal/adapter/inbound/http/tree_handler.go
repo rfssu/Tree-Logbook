@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -15,14 +16,28 @@ import (
 
 // TreeHandler handles tree HTTP requests
 type TreeHandler struct {
-	usecase *tree.TreeUseCase
+	usecase  *tree.TreeUseCase
+	userRepo auth.UserRepository
 }
 
 // NewTreeHandler creates a new tree handler
-func NewTreeHandler(usecase *tree.TreeUseCase) *TreeHandler {
+func NewTreeHandler(usecase *tree.TreeUseCase, userRepo auth.UserRepository) *TreeHandler {
 	return &TreeHandler{
-		usecase: usecase,
+		usecase:  usecase,
+		userRepo: userRepo,
 	}
+}
+
+// populateUsername looks up username from user ID (UUID)
+func (h *TreeHandler) populateUsername(ctx context.Context, userID string) string {
+	if userID == "" {
+		return "System"
+	}
+	user, err := h.userRepo.FindByID(ctx, userID)
+	if err != nil || user == nil {
+		return userID // Fallback to UUID if lookup fails
+	}
+	return user.Username
 }
 
 // Routes registers all tree routes
@@ -145,6 +160,11 @@ func (h *TreeHandler) GetTree(c *fiber.Ctx) error {
 		})
 	}
 
+	// Populate username from PostgreSQL (cross-database lookup)
+	if response.RegisteredBy != "" {
+		response.RegisteredByUsername = h.populateUsername(ctx, response.RegisteredBy)
+	}
+
 	// Store in cache for 5 minutes
 	cache.CacheTree(ctx, code, response, 5*time.Minute)
 
@@ -189,11 +209,18 @@ func (h *TreeHandler) ListTrees(c *fiber.Ctx) error {
 
 	response, err := h.usecase.ListTrees(ctx, filter)
 	if err != nil {
-		fmt.Printf("❌ LIST TREES ERROR: %v\n", err)
+		fmt.Printf("❌ ListTrees error: %v\n", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"error":   fmt.Sprintf("Failed to list trees: %v", err),
 		})
+	}
+
+	// Populate usernames for all trees (cross-database lookup)
+	for i := range response {
+		if response[i].RegisteredBy != "" {
+			response[i].RegisteredByUsername = h.populateUsername(ctx, response[i].RegisteredBy)
+		}
 	}
 
 	return c.JSON(fiber.Map{

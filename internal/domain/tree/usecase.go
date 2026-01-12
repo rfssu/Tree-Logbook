@@ -19,20 +19,21 @@ func NewTreeUseCase(repo TreeRepository, monitoringRepo MonitoringRepository) *T
 
 // TreeResponse represents tree data for API responses
 type TreeResponse struct {
-	ID           string  `json:"id"`
-	Code         string  `json:"code"`
-	SpeciesID    string  `json:"species_id"`
-	LocationID   string  `json:"location_id"`
-	PlantingDate string  `json:"planting_date"`
-	AgeYears     int     `json:"age_years"`
-	HeightMeters float64 `json:"height_meters"`
-	DiameterCm   float64 `json:"diameter_cm"`
-	Status       string  `json:"status"`
-	HealthScore  int     `json:"health_score"`
-	Notes        string  `json:"notes"`
-	RegisteredBy string  `json:"registered_by"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID                   string  `json:"id"`
+	Code                 string  `json:"code"`
+	SpeciesID            string  `json:"species_id"`
+	LocationID           string  `json:"location_id"`
+	PlantingDate         string  `json:"planting_date"`
+	AgeYears             int     `json:"age_years"`
+	HeightMeters         float64 `json:"height_meters"`
+	DiameterCm           float64 `json:"diameter_cm"`
+	Status               string  `json:"status"`
+	HealthScore          int     `json:"health_score"`
+	Notes                string  `json:"notes"`
+	RegisteredBy         string  `json:"registered_by"`
+	RegisteredByUsername string  `json:"registered_by_username"` // Populated by handler
+	CreatedAt            string  `json:"created_at"`
+	UpdatedAt            string  `json:"updated_at"`
 }
 
 // RegisterTree registers a new tree

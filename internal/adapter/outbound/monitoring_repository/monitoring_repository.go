@@ -4,22 +4,24 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"prabogo/internal/domain/tree"
 )
 
 type MonitoringLog struct {
-	ID           string  `json:"id"`
-	TreeID       string  `json:"tree_id"`
-	MonitorDate  string  `json:"monitor_date"`
-	Status       string  `json:"status"`
-	HealthScore  int     `json:"health_score"`
-	HeightMeters float64 `json:"height_meters"`
-	DiameterCm   float64 `json:"diameter_cm"`
-	Observations string  `json:"observations"`
-	ActionsTaken string  `json:"actions_taken"`
-	MonitoredBy  string  `json:"monitored_by"`
-	CreatedAt    string  `json:"created_at"`
+	ID                  string    `json:"id"`
+	TreeID              string    `json:"tree_id"`
+	MonitorDate         time.Time `json:"monitor_date"`
+	Status              string    `json:"status"`
+	HealthScore         int       `json:"health_score"`
+	HeightMeters        float64   `json:"height_meters"`
+	DiameterCm          float64   `json:"diameter_cm"`
+	Observations        string    `json:"observations"`
+	ActionsTaken        string    `json:"actions_taken"`
+	MonitoredBy         string    `json:"monitored_by"`
+	MonitoredByUsername string    `json:"monitored_by_username"` // Populated by handler
+	CreatedAt           time.Time `json:"created_at"`
 }
 
 type MonitoringRepository struct {
@@ -41,7 +43,7 @@ func (r *MonitoringRepository) GetLogsByTreeCode(ctx context.Context, treeCode s
 		return nil, fmt.Errorf("tree not found: %w", err)
 	}
 
-	// Query monitoring logs with correct column names
+	// Query monitoring logs - returns UTC timestamps, browser handles local display
 	query := `
 		SELECT id, tree_id, monitor_date, status, health_score, 
 		       height_meters, diameter_cm, observations, actions_taken,
@@ -94,23 +96,31 @@ func (r *MonitoringRepository) GetLogsByTreeCode(ctx context.Context, treeCode s
 
 // CreateLog inserts a new monitoring log - implements tree.MonitoringRepository interface
 func (r *MonitoringRepository) CreateLog(ctx context.Context, log *tree.MonitoringLog) error {
-	// Get tree ID from tree code
 	var treeID string
-	err := r.db.QueryRowContext(ctx, "SELECT id FROM trees WHERE code = $1", log.TreeCode).Scan(&treeID)
-	if err != nil {
-		return fmt.Errorf("tree not found: %w", err)
+	var err error
+
+	// ✅ FIX: Access TreeID directly from struct if available (Hybrid support)
+	if log.TreeID != "" {
+		treeID = log.TreeID
+	} else {
+		// Fallback for older code: Get tree ID from tree code (Only works if tree is in PostgreSQL)
+		err = r.db.QueryRowContext(ctx, "SELECT id FROM trees WHERE code = $1", log.TreeCode).Scan(&treeID)
+		if err != nil {
+			// Don't fail hard here, as tree might be in SawitDB
+			// Ideally we should have TreeID passed in.
+			// For now, if lookup fails and no TreeID passed, we can't insert FK constraint.
+			return fmt.Errorf("tree not found (and TreeID not provided): %w", err)
+		}
 	}
 
-	// Also get current tree height/diameter for logging
+	// Also get current tree height/diameter for logging (Optional)
+	// We optimize this to skip if we assume default or if passed in struct (future improvement)
 	var heightMeters, diameterCm float64
-	err = r.db.QueryRowContext(ctx,
+	// Try to fetch dimensions if tree is in PostgreSQL (Legacy)
+	// If it fails, that's fine, defaults to 0
+	_ = r.db.QueryRowContext(ctx,
 		"SELECT height_meters, diameter_cm FROM trees WHERE code = $1",
 		log.TreeCode).Scan(&heightMeters, &diameterCm)
-	if err != nil {
-		// If can't get dimensions, use 0 as default
-		heightMeters = 0
-		diameterCm = 0
-	}
 
 	query := `
 		INSERT INTO monitoring_logs (
@@ -118,13 +128,13 @@ func (r *MonitoringRepository) CreateLog(ctx context.Context, log *tree.Monitori
 			height_meters, diameter_cm, observations, actions_taken, 
 			monitored_by, created_at
 		)
-		VALUES ($1, $2, NOW(), $3, $4, $5, $6, $7, $8, $9, NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	_, err = r.db.ExecContext(ctx, query,
 		log.ID,
 		treeID,
-		// $3 is NOW() - PostgreSQL current timestamp!
+		log.MonitoringDate, // ✅ Use passed timestamp from tree.UpdatedAt (SAME source!)
 		string(log.Status),
 		log.HealthScore,
 		heightMeters,
@@ -132,6 +142,7 @@ func (r *MonitoringRepository) CreateLog(ctx context.Context, log *tree.Monitori
 		log.Notes,
 		"Dashboard status update",
 		log.MonitoredBy,
+		log.MonitoringDate, // created_at also uses same timestamp
 	)
 
 	if err != nil {
@@ -139,4 +150,51 @@ func (r *MonitoringRepository) CreateLog(ctx context.Context, log *tree.Monitori
 	}
 
 	return nil
+}
+
+// GetLogsByTreeID gets logs directly by TreeID (Hybrid support for SawitDB trees)
+func (r *MonitoringRepository) GetLogsByTreeID(ctx context.Context, treeID string) ([]MonitoringLog, error) {
+	// Query monitoring logs - returns UTC timestamps, browser handles local display
+	query := `
+		SELECT id, tree_id, monitor_date, status, health_score, 
+		       height_meters, diameter_cm, observations, actions_taken,
+		       monitored_by, created_at
+		FROM monitoring_logs
+		WHERE tree_id = $1
+		ORDER BY monitor_date DESC, created_at DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, treeID)
+	if err != nil {
+		return nil, fmt.Errorf("query error: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []MonitoringLog
+	for rows.Next() {
+		var log MonitoringLog
+		err := rows.Scan(
+			&log.ID,
+			&log.TreeID,
+			&log.MonitorDate,
+			&log.Status,
+			&log.HealthScore,
+			&log.HeightMeters,
+			&log.DiameterCm,
+			&log.Observations,
+			&log.ActionsTaken,
+			&log.MonitoredBy,
+			&log.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan error: %w", err)
+		}
+		logs = append(logs, log)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return logs, nil
 }

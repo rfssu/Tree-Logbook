@@ -65,6 +65,7 @@ type MonitoringRepository interface {
 // MonitoringLog represents a tree monitoring event
 type MonitoringLog struct {
 	ID             string
+	TreeID         string // ✅ Added TreeID so we don't need to look it up in PostgreSQL
 	TreeCode       string
 	Status         TreeStatus
 	HealthScore    int
@@ -160,6 +161,7 @@ func (s *TreeService) RegisterNewTree(ctx context.Context, req RegisterTreeReque
 	now := time.Now().UTC()
 	initialLog := &MonitoringLog{
 		ID:             uuid.New().String(),
+		TreeID:         tree.ID, // ✅ Populate TreeID
 		TreeCode:       tree.Code,
 		Status:         tree.Status,
 		HealthScore:    tree.HealthScore,
@@ -203,26 +205,26 @@ func (s *TreeService) UpdateTreeCondition(ctx context.Context, code string, newS
 	if notes != "" {
 		tree.Notes = notes
 	}
-	tree.UpdatedAt = time.Now()
+	tree.UpdatedAt = time.Now().UTC()
 
 	// 5. Save changes to trees table
 	if err := s.repo.Update(ctx, tree); err != nil {
 		return fmt.Errorf("failed to update tree: %w", err)
 	}
 
-	// 6. ✅ NEW: Insert monitoring log to track this change
-	now := time.Now().UTC()
+	// ✅ USER'S BRILLIANT FIX: Use tree.UpdatedAt for monitoring log (same timestamp!)
 	fmt.Printf("⏰ Creating monitoring log for tree %s (status: %s, health: %d)\n", tree.Code, newStatus, healthScore)
-	fmt.Printf("🕐 Current time: %s\n", now.Format("2006-01-02 15:04:05"))
+	fmt.Printf("🕐 Using tree.UpdatedAt: %s\n", tree.UpdatedAt.Format("2006-01-02 15:04:05"))
 
 	monitoringLog := &MonitoringLog{
 		ID:             uuid.New().String(),
+		TreeID:         tree.ID, // ✅ Populate TreeID from tree object
 		TreeCode:       tree.Code,
 		Status:         newStatus,
 		HealthScore:    healthScore,
 		Notes:          notes,
 		MonitoredBy:    tree.RegisteredBy, // TODO: Get from auth context
-		MonitoringDate: now,
+		MonitoringDate: tree.UpdatedAt,    // ✅ COPY from tree.UpdatedAt (SAME source!)
 	}
 
 	fmt.Printf("📅 MonitoringDate being saved: %s\n", monitoringLog.MonitoringDate.Format("2006-01-02 15:04:05"))

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@variant dark (&:where(.dark *));
+
 @layer components {
     .badge-sehat {
         @apply bg-green-100 text-green-800;

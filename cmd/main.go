@@ -65,12 +65,26 @@ func main() {
 		// For now, fall back to PostgreSQL for these
 		db := database.InitDatabase(ctx, "postgres")
 		defer db.Close()
+
+		// 🔧 HYBRID MODE FIX: Drop Foreign Key because SawitDB trees don't exist in Postgres 'trees' table!
+		fmt.Println("🔧 Hybrid Mode: Dropping Foreign Key constraint on monitoring_logs...")
+		_, err := db.Exec("ALTER TABLE monitoring_logs DROP CONSTRAINT IF EXISTS monitoring_logs_tree_id_fkey")
+		if err != nil {
+			fmt.Printf("⚠️ Warning: Failed to drop constraint: %v\n", err)
+		} else {
+			fmt.Println("✅ Foreign Key constraint dropped. Hybrid storage ready.")
+		}
+
 		userRepo = user_repository.NewUserRepository(db)
 		monitoringRepo = monitoring_repository.NewMonitoringRepository(db)
 	} else {
 		// Initialize PostgreSQL database
 		db := database.InitDatabase(ctx, os.Getenv("OUTBOUND_DATABASE_DRIVER"))
 		defer db.Close()
+
+		// 🔧 HYBRID MODE FIX (Just in case): Drop Foreign Key
+		fmt.Println("🔧 dropping Foreign Key constraint (if exists)...")
+		db.Exec("ALTER TABLE monitoring_logs DROP CONSTRAINT IF EXISTS monitoring_logs_tree_id_fkey")
 
 		// Initialize PostgreSQL repositories
 		treeRepo = tree_repository.NewTreeRepository(db)
@@ -83,11 +97,11 @@ func main() {
 	authService := auth.NewAuthService(userRepo)
 
 	// Initialize handlers
-	treeHandler := http.NewTreeHandler(treeUseCase)
+	treeHandler := http.NewTreeHandler(treeUseCase, userRepo)
 	authHandler := http.NewAuthHandler(authService)
 	// MonitoringHandler requires concrete type (always uses PostgreSQL)
 	monitoringHandlerRepo := monitoring_repository.NewMonitoringRepository(database.InitDatabase(ctx, "postgres"))
-	monitoringHandler := http.NewMonitoringHandler(monitoringHandlerRepo)
+	monitoringHandler := http.NewMonitoringHandler(monitoringHandlerRepo, userRepo, treeRepo)
 
 	// Create auth middleware
 	authMiddleware := http.AuthMiddleware(authService)

@@ -17,6 +17,10 @@ type TreeRepository struct {
 
 // NewTreeRepository creates a new SawitDB tree repository
 func NewTreeRepository(client *sawit_client.SawitClient) tree.TreeRepository {
+	// 🔧 Auto-create 'trees' collection if not exists (SawitDB 'LAHAN trees' is idempotent)
+	// We use background context as this is initialization
+	_, _ = client.Query(context.Background(), "LAHAN trees")
+
 	return &TreeRepository{client: client}
 }
 
@@ -248,10 +252,16 @@ func (r *TreeRepository) parseTreeResults(result interface{}) ([]*tree.Tree, err
 
 	// Check if result is already a JSON string (from TCP client)
 	if jsonStr, ok := result.(string); ok {
+		// Check if the string itself is a reported error from the engine (e.g. "Error: ...")
+		if len(jsonStr) >= 5 && jsonStr[:5] == "Error" {
+			return nil, fmt.Errorf("sawitdb engine error: %s", jsonStr)
+		}
+
 		// Direct unmarshal from JSON string
 		err := json.Unmarshal([]byte(jsonStr), &rawTrees)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal JSON string: %w", err)
+			// If unmarshal fails, it might be an obscure error message or invalid data
+			return nil, fmt.Errorf("failed to unmarshal JSON string: %w (content: %s)", err, jsonStr)
 		}
 	} else {
 		// SawitDB returns []interface{} with map[string]interface{} items
