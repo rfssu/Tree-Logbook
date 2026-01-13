@@ -1,4 +1,3 @@
-// Users List Component
 const usersList = {
     users: [],
 
@@ -158,7 +157,6 @@ const usersList = {
                                 ${user.id === currentUser.id ? 'disabled title="Cannot change your own role"' : ''}>
                             <option value="admin" ${user.role === 'admin' ? 'selected' : ''} class="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">ADMIN</option>
                             <option value="editor" ${user.role === 'editor' ? 'selected' : ''} class="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">EDITOR</option>
-                            <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''} class="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">VIEWER</option>
                         </select>
                         <!-- Custom Arrow for non-disabled -->
                          ${user.id !== currentUser.id ? `

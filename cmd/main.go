@@ -127,6 +127,9 @@ func main() {
 		})
 	})
 
+	// Register public routes (no auth required)
+	treeHandler.RoutesPublic(app)
+
 	// Register auth routes
 	authHandler.Routes(app, authMiddleware)
 	userHandler.Routes(app, authMiddleware) // Register User Routes

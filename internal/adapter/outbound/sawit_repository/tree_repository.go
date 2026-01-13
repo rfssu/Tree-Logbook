@@ -19,7 +19,8 @@ type TreeRepository struct {
 func NewTreeRepository(client *sawit_client.SawitClient) tree.TreeRepository {
 	// 🔧 Auto-create 'trees' collection if not exists (SawitDB 'LAHAN trees' is idempotent)
 	// We use background context as this is initialization
-	_, _ = client.Query(context.Background(), "LAHAN trees")
+	// COMMENTED OUT FOR DEBUGGING: Suspected of wiping data on reconnect
+	// _, _ = client.Query(context.Background(), "LAHAN trees")
 
 	return &TreeRepository{client: client}
 }

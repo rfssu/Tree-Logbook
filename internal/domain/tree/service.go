@@ -65,7 +65,7 @@ type MonitoringRepository interface {
 // MonitoringLog represents a tree monitoring event
 type MonitoringLog struct {
 	ID             string
-	TreeID         string 
+	TreeID         string
 	TreeCode       string
 	Status         TreeStatus
 	HealthScore    int
@@ -275,42 +275,90 @@ func (s *TreeService) DeleteTree(ctx context.Context, code string) error {
 	return nil
 }
 
-// GetTreeStatistics retrieves statistics about trees
+// GetTreeStatistics retrieves statistics about trees including growth and maintenance needs
 func (s *TreeService) GetTreeStatistics(ctx context.Context) (*TreeStatistics, error) {
-	stats := &TreeStatistics{}
-
-	// Count by status
-	for _, status := range []TreeStatus{StatusSehat, StatusSakit, StatusMati, StatusDipupuk, StatusDipantau} {
-		count, err := s.repo.CountByStatus(ctx, status)
-		if err != nil {
-			return nil, err
-		}
-
-		switch status {
-		case StatusSehat:
-			stats.HealthyCount = int(count)
-		case StatusSakit:
-			stats.SickCount = int(count)
-		case StatusMati:
-			stats.DeadCount = int(count)
-		case StatusDipupuk:
-			stats.FertilizedCount = int(count)
-		case StatusDipantau:
-			stats.MonitoredCount = int(count)
-		}
+	stats := &TreeStatistics{
+		MonthlyGrowth: make(map[string]int),
+		Maintenance:   []Tree{},
 	}
 
-	stats.TotalCount = stats.HealthyCount + stats.SickCount + stats.DeadCount + stats.FertilizedCount + stats.MonitoredCount
+	// Fetch all trees to perform aggregation (SawitDB works best in memory for stats)
+	allTrees, err := s.repo.FindAll(ctx, TreeFilter{})
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+
+	stats.TotalCount = len(allTrees)
+
+	for _, t := range allTrees {
+		// 1. Count by Status
+		switch t.Status {
+		case StatusSehat:
+			stats.HealthyCount++
+		case StatusSakit:
+			stats.SickCount++
+		case StatusMati:
+			stats.DeadCount++
+		case StatusDipupuk:
+			stats.FertilizedCount++
+		case StatusDipantau:
+			stats.MonitoredCount++
+		}
+
+		// 2. Monthly Growth (Planting Date)
+		// Format: "YYYY-MM"
+		if !t.PlantingDate.IsZero() {
+			monthKey := t.PlantingDate.Format("2006-01")
+			stats.MonthlyGrowth[monthKey]++
+		}
+
+		// 3. Identify Maintenance Candidates (Top 5 Priority)
+		// Priority: SAKIT (Any), SEHAT (>30 days since update), Score < 50
+		needsAttention := false
+
+		// If Sick, always needs attention
+		if t.Status == StatusSakit {
+			needsAttention = true
+		}
+
+		// If Health Score drops below 50
+		if t.HealthScore < 50 && t.Status != StatusMati {
+			needsAttention = true
+		}
+
+		// If not updated in 30 days (Maintenance overdue)
+		// Approximate using UpdatedAt or PlantingDate if UpdatedAt is zero
+		lastActivity := t.UpdatedAt
+		if lastActivity.IsZero() {
+			lastActivity = t.PlantingDate
+		}
+		daysSince := now.Sub(lastActivity).Hours() / 24
+		if daysSince > 30 && t.Status != StatusMati {
+			needsAttention = true
+		}
+
+		if needsAttention {
+			// Prepend to list (simple LIFO or just append)
+			// Limit to 5 for dashboard
+			if len(stats.Maintenance) < 5 {
+				stats.Maintenance = append(stats.Maintenance, *t)
+			}
+		}
+	}
 
 	return stats, nil
 }
 
 // TreeStatistics represents tree statistics
 type TreeStatistics struct {
-	TotalCount      int
-	HealthyCount    int
-	SickCount       int
-	DeadCount       int
-	FertilizedCount int
-	MonitoredCount  int
+	TotalCount      int            `json:"total"`
+	HealthyCount    int            `json:"healthy"`
+	SickCount       int            `json:"sick"`
+	DeadCount       int            `json:"dead"`
+	FertilizedCount int            `json:"fertilized"`
+	MonitoredCount  int            `json:"monitored"`
+	MonthlyGrowth   map[string]int `json:"monthly_growth"`
+	Maintenance     []Tree         `json:"maintenance"` // List of trees needing attention
 }

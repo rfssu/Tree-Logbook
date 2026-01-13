@@ -84,15 +84,55 @@ func (uc *TreeUseCase) GetStatistics(ctx context.Context) (*TreeStatisticsRespon
 
 // TreeStatisticsResponse for API
 type TreeStatisticsResponse struct {
-	Total      int `json:"total"`
-	Healthy    int `json:"healthy"`
-	Sick       int `json:"sick"`
-	Dead       int `json:"dead"`
-	Fertilized int `json:"fertilized"`
-	Monitored  int `json:"monitored"`
+	Total           int               `json:"total"`
+	Healthy         int               `json:"healthy"`
+	Sick            int               `json:"sick"`
+	Dead            int               `json:"dead"`
+	Fertilized      int               `json:"fertilized"`
+	Monitored       int               `json:"monitored"`
+	MonthlyGrowth   map[string]int    `json:"monthly_growth"`   // Chart Data
+	MaintenanceList []MaintenanceItem `json:"maintenance_list"` // Widget Data
 }
 
-// Helper: Convert Tree entity to TreeResponse
+type MaintenanceItem struct {
+	Code      string `json:"code"`
+	Status    string `json:"status"`
+	Issue     string `json:"issue"` // "Overdue" or "Sick"
+	UpdatedAt string `json:"updated_at"`
+}
+
+// Helper: Convert Tree Statistics
+func toStatisticsResponse(s *TreeStatistics) *TreeStatisticsResponse {
+	maintenance := []MaintenanceItem{}
+	for _, t := range s.Maintenance {
+		issue := "Attention Needed"
+		if t.Status == "SAKIT" {
+			issue = "Pohon Sakit"
+		} else if t.HealthScore < 50 {
+			issue = "Kesehatan Buruk"
+		} else {
+			issue = "Perawatan Berkala"
+		}
+
+		maintenance = append(maintenance, MaintenanceItem{
+			Code:      t.Code,
+			Status:    string(t.Status),
+			Issue:     issue,
+			UpdatedAt: t.UpdatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	return &TreeStatisticsResponse{
+		Total:           s.TotalCount,
+		Healthy:         s.HealthyCount,
+		Sick:            s.SickCount,
+		Dead:            s.DeadCount,
+		Fertilized:      s.FertilizedCount,
+		Monitored:       s.MonitoredCount,
+		MonthlyGrowth:   s.MonthlyGrowth,
+		MaintenanceList: maintenance,
+	}
+}
 func toTreeResponse(t *Tree) *TreeResponse {
 	return &TreeResponse{
 		ID:           t.ID,
@@ -121,14 +161,4 @@ func toTreeResponses(trees []*Tree) []*TreeResponse {
 	return responses
 }
 
-// Helper: Convert statistics
-func toStatisticsResponse(stats *TreeStatistics) *TreeStatisticsResponse {
-	return &TreeStatisticsResponse{
-		Total:      stats.TotalCount,
-		Healthy:    stats.HealthyCount,
-		Sick:       stats.SickCount,
-		Dead:       stats.DeadCount,
-		Fertilized: stats.FertilizedCount,
-		Monitored:  stats.MonitoredCount,
-	}
-}
+// Helper: Convert statistics (Removed duplicate)

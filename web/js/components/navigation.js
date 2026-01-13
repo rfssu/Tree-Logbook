@@ -1,23 +1,44 @@
 // Navigation Component - Persistent Top Nav with Breadcrumb
 const Navigation = {
-    // Render persistent navigation bar with active state
-    renderNavbar(currentRoute = '', breadcrumbs = []) {
-        const user = Storage.getUser();
-        const isAdmin = Storage.isAdmin();
-        const canCreate = Storage.isAdmin(); // Only admin can create
+  // Render persistent navigation bar with active state
+  renderNavbar(currentRoute = '', breadcrumbs = []) {
+    const user = Storage.getUser();
+    const isAdmin = Storage.isAdmin();
+    const isAuthenticated = Auth.isAuthenticated();
 
-        return `
+    // 🌟 Public Landing Nav
+    if (currentRoute === 'landing') {
+      return `
+            <nav class="fixed w-full z-50 transition-colors duration-300">
+                <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl">🌳</span>
+                        <span class="text-xl font-bold text-white tracking-wide">PANTAUPOHON</span>
+                    </div>
+                    <div>
+                        ${isAuthenticated
+          ? `<button onclick="Router.navigate('/dashboard')" class="px-6 py-2 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md rounded-xl text-white font-semibold transition-all">Go to Dashboard &rarr;</button>`
+          : `<button onclick="Router.navigate('/login')" class="px-6 py-2 bg-green-500 hover:bg-green-400 text-white rounded-xl font-semibold shadow-lg shadow-green-900/20 transition-all">Login</button>`
+        }
+                    </div>
+                </div>
+            </nav>
+        `;
+    }
+
+    // 🛡️ Protected / App Nav
+    return `
       <nav class="fixed w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-700 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16">
             <!-- Left: Logo + Navigation Links -->
             <div class="flex items-center gap-8">
               <!-- Logo -->
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 cursor-pointer" onclick="Router.navigate('/')">
                 <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20">
                   <span class="text-lg">🌳</span>
                 </div>
-                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-600 to-emerald-800 dark:from-white dark:to-slate-400">Tree-ID</h1>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-600 to-emerald-800 dark:from-white dark:to-slate-400">PANTAUPOHON</h1>
               </div>
 
               <!-- Desktop Navigation Links -->
@@ -82,89 +103,89 @@ const Navigation = {
         ${breadcrumbs.length > 0 ? this.renderBreadcrumb(breadcrumbs) : ''}
       </nav>
     `;
-    },
+  },
 
-    // Render individual nav link with active state
-    renderNavLink(route, label, currentRoute) {
-        const isActive = currentRoute === route;
-        const baseClasses = 'px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200';
-        const activeClasses = isActive
-            ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-b-2 border-green-600 dark:border-green-400'
-            : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-800';
+  // Render individual nav link with active state
+  renderNavLink(route, label, currentRoute) {
+    const isActive = currentRoute === route;
+    const baseClasses = 'px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200';
+    const activeClasses = isActive
+      ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-b-2 border-green-600 dark:border-green-400'
+      : 'text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-slate-800';
 
-        return `
+    return `
       <a href="#/${route}" class="${baseClasses} ${activeClasses}">
         ${label}
       </a>
     `;
-    },
+  },
 
-    // Render mobile nav link
-    renderMobileNavLink(route, label, currentRoute) {
-        const isActive = currentRoute === route;
-        return `
+  // Render mobile nav link
+  renderMobileNavLink(route, label, currentRoute) {
+    const isActive = currentRoute === route;
+    return `
       <a href="#/${route}" onclick="Navigation.toggleMobileMenu()" class="block px-4 py-3 rounded-lg text-base font-medium ${isActive ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800'} transition-colors">
         ${label}
       </a>
     `;
-    },
+  },
 
-    // Toggle mobile menu visibility
-    toggleMobileMenu() {
-        const menu = document.getElementById('mobile-menu');
-        if (menu) {
-            menu.classList.toggle('hidden');
-        }
-    },
+  // Toggle mobile menu visibility
+  toggleMobileMenu() {
+    const menu = document.getElementById('mobile-menu');
+    if (menu) {
+      menu.classList.toggle('hidden');
+    }
+  },
 
-    // Render breadcrumb trail
-    renderBreadcrumb(breadcrumbs) {
-        return `
+  // Render breadcrumb trail
+  renderBreadcrumb(breadcrumbs) {
+    return `
       <div class="border-t border-gray-100 dark:border-slate-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div class="flex items-center space-x-2 text-sm">
             ${breadcrumbs.map((crumb, index) => {
-            const isLast = index === breadcrumbs.length - 1;
-            return `
+      const isLast = index === breadcrumbs.length - 1;
+      return `
                 ${crumb.url && !isLast
-                    ? `<a href="${crumb.url}" class="text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors">${crumb.label}</a>`
-                    : `<span class="${isLast ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-600 dark:text-slate-400'}">${crumb.label}</span>`
-                }
+          ? `<a href="${crumb.url}" class="text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors">${crumb.label}</a>`
+          : `<span class="${isLast ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-600 dark:text-slate-400'}">${crumb.label}</span>`
+        }
                 ${!isLast ? '<span class="text-gray-400 dark:text-slate-600">›</span>' : ''}
               `;
-        }).join('')}
+    }).join('')}
           </div>
         </div>
       </div>
     `;
-    },
+  },
 
-    // Preset breadcrumbs for common routes
-    getBreadcrumbs(route, params = {}) {
-        const breadcrumbMap = {
-            'dashboard': [
-                { label: 'Dashboard', url: null }
-            ],
-            'trees': [
-                { label: 'Dashboard', url: '#/dashboard' },
-                { label: 'Trees', url: null }
-            ],
-            'trees/new': [
-                { label: 'Dashboard', url: '#/dashboard' },
-                { label: 'Trees', url: '#/trees' },
-                { label: 'New Tree', url: null }
-            ],
-            'trees/edit': [
-                { label: 'Dashboard', url: '#/dashboard' },
-                { label: 'Trees', url: '#/trees' },
-                { label: `Edit ${params.code || 'Tree'}`, url: null }
-            ],
-            'users': [
-                { label: 'Dashboard', url: '#/dashboard' },
-                { label: 'Users', url: null }
-            ]
-        };
+  // Preset breadcrumbs for common routes
+  getBreadcrumbs(route, params = {}) {
+    const breadcrumbMap = {
+      'dashboard': [
+        { label: 'Dashboard', url: null }
+      ],
+      'trees': [
+        { label: 'Dashboard', url: '#/dashboard' },
+        { label: 'Trees', url: null }
+      ],
+      'trees/new': [
+        { label: 'Dashboard', url: '#/dashboard' },
+        { label: 'Trees', url: '#/trees' },
+        { label: 'New Tree', url: null }
+      ],
+      'trees/edit': [
+        { label: 'Dashboard', url: '#/dashboard' },
+        { label: 'Trees', url: '#/trees' },
+        { label: `Edit ${params.code || 'Tree'}`, url: null }
+      ],
+      'users': [
+        { label: 'Dashboard', url: '#/dashboard' },
+        { label: 'Users', url: null }
+      ]
+    };
 
-        return breadcrumbMap[route] || [];
-    }
+    return breadcrumbMap[route] || [];
+  }
 };

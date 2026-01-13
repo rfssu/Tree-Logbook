@@ -16,12 +16,20 @@ async function viewAllTables() {
     `;
         const trees = await db.query(treesQuery);
         console.log('Sample Trees (first 5):');
-        console.table(trees);
+        console.log('Type of trees:', typeof trees);
+        console.log('Is Array?', Array.isArray(trees));
+        if (Array.isArray(trees)) {
+            console.table(trees);
+        } else {
+            console.log('Result:', trees);
+        }
 
         console.log('\n🔍 Full Tree Record (checking fields):');
-        if (trees && trees.length > 0) {
+        if (Array.isArray(trees) && trees.length > 0) {
             console.log(JSON.stringify(trees[0], null, 2));
             console.log(`\n✅ Has 'registered_by_username'? ${trees[0].hasOwnProperty('registered_by_username') ? 'YES' : 'NO ❌'}`);
+        } else {
+            console.log('No trees found or invalid format.');
         }
 
         // Monitoring Logs

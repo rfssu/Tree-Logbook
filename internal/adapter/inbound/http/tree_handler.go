@@ -40,18 +40,13 @@ func (h *TreeHandler) populateUsername(ctx context.Context, userID string) strin
 	return user.Username
 }
 
-// Routes registers all tree routes
-func (h *TreeHandler) Routes(app *fiber.App) {
+// RoutesPublic registers public tree routes (accessible without login)
+func (h *TreeHandler) RoutesPublic(app *fiber.App) {
 	api := app.Group("/api")
 	trees := api.Group("/trees")
 
-	trees.Post("/", h.CreateTree)
+	// Public access to view tree details by code
 	trees.Get("/:code", h.GetTree)
-	trees.Get("/", h.ListTrees)
-	trees.Put("/:code/status", h.UpdateTreeStatus)
-	trees.Delete("/:code", h.DeleteTree)
-
-	api.Get("/stats", h.GetStatistics)
 }
 
 // RoutesWithAuth registers tree routes with authentication and role-based access
@@ -59,17 +54,12 @@ func (h *TreeHandler) RoutesWithAuth(app *fiber.App, authMiddleware fiber.Handle
 	api := app.Group("/api")
 	trees := api.Group("/trees")
 
-	// All authenticated users can read (viewer, editor, admin)
-	trees.Get("/:code", authMiddleware, h.GetTree)
+	// Protected Read Routes
 	trees.Get("/", authMiddleware, h.ListTrees)
 
-	// Only Admin and Editor can create trees
+	// Protected Write Routes (Admin/Editor)
 	trees.Post("/", authMiddleware, RoleMiddleware(auth.RoleAdmin, auth.RoleEditor), h.CreateTree)
-
-	// Only Admin and Editor can update tree status
 	trees.Put("/:code/status", authMiddleware, RoleMiddleware(auth.RoleAdmin, auth.RoleEditor), h.UpdateTreeStatus)
-
-	// Only Admin can delete trees
 	trees.Delete("/:code", authMiddleware, RoleMiddleware(auth.RoleAdmin), h.DeleteTree)
 
 	// Stats available to all authenticated users

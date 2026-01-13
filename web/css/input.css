@@ -36,6 +36,11 @@
     .toast.hide {
         animation: slideOutRight 0.3s ease-in;
     }
+
+    /* Force include animate-ping for JokoUI effects */
+    .animate-ping {
+        animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+    }
 }
 
 @keyframes slideInRight {
@@ -58,6 +63,15 @@
 
     to {
         transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+@keyframes ping {
+
+    75%,
+    100% {
+        transform: scale(2);
         opacity: 0;
     }
 }

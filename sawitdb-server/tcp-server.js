@@ -17,6 +17,38 @@ const server = net.createServer((socket) => {
             const query = data.toString().trim();
             console.log('🔍 Query received:', query);
 
+            // SAFETY PATCH: Ignore LAHAN commands (prevent reset)
+            // SAFETY PATCH: Smart LAHAN Handling (Corrected)
+            // SAFETY PATCH: Smart LAHAN Handling (Corrected V2)
+            if (query.toUpperCase().startsWith('LAHAN')) {
+                try {
+                    // Check if table exists by trying to read
+                    const check = await db.query('PANEN * DARI trees BATAS 1');
+
+                    // SawitDB returns string "Error: ..." if table missing, NOT throws.
+                    const isError = typeof check === 'string' && check.startsWith('Error');
+
+                    // If NO Error and IS Array -> Table Exists -> BLOCK
+                    if (!isError && Array.isArray(check)) {
+                        console.log('🛡️ PROTECTED: Table exists. Ignoring destructive LAHAN command');
+                        const response = JSON.stringify({
+                            success: true,
+                            data: [],
+                            message: "Collection verified (Simulated)",
+                            timestamp: new Date().toISOString()
+                        });
+                        socket.write(response + '\n');
+                        return; // BLOCK command
+                    }
+
+                    console.log('⚠️ INITIALIZING: Table missing (Check returned error). Allowing LAHAN to create it.');
+                    // Fallthrough to execute db.query(query) below (ALLOW Create)
+
+                } catch (e) {
+                    console.log('⚠️ INITIALIZING: Shield check failed safely. Allowing LAHAN.');
+                }
+            }
+
             // Execute query on SawitDB
             const result = await db.query(query);
 

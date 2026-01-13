@@ -1,5 +1,8 @@
 // Tree Form Component - Create/Edit Tree
-function renderTreeForm(treeCode = null) {
+function renderTreeForm(params = {}) {
+  // If params is an object (from Router), extract code. If string/null, use as is.
+  const treeCode = (typeof params === 'object' && params !== null) ? params.code : params;
+
   const isEdit = !!treeCode;
   const title = isEdit ? 'Edit Tree' : 'Create New Tree';
   const breadcrumbs = Navigation.getBreadcrumbs(isEdit ? 'trees/edit' : 'trees/new', { code: treeCode });

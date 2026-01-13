@@ -1,5 +1,3 @@
-// Tree List Component with Smart Health Input & History
-// Global state for search and filter
 let currentSearch = '';
 let currentFilter = 'ALL';
 let currentSort = { column: 'code', direction: 'asc' };
@@ -315,6 +313,12 @@ async function loadTrees() {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-slate-300 ${isDead ? 'text-gray-500' : ''}">${tree.diameter_cm}cm</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">${lastUpdated}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                  <button onclick="downloadQRCode('${tree.code}')" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors bg-blue-50 dark:bg-blue-400/10 px-3 py-1 rounded-md inline-flex items-center gap-1" title="Download QR Code">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                    QR
+                  </button>
                   ${isDead
             ? `<button onclick="openViewModal('${tree.code}')" class="text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-colors">View</button>`
             : canEdit ? `<button onclick="openUpdateModal('${tree.code}')" class="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors bg-green-50 dark:bg-green-400/10 px-3 py-1 rounded-md">Update</button>` : ''}
@@ -490,6 +494,99 @@ async function openViewModal(code) {
     showLoading(false);
   }
 }
+
+function confirmDeleteTree(code) {
+  document.getElementById('delete-tree-code').textContent = code;
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.add('hidden');
+}
+
+async function executeDelete() {
+  const code = document.getElementById('delete-tree-code').textContent;
+  try {
+    showLoading(true);
+    const response = await API.trees.delete(code);
+    if (response.success) {
+      showToast('Deleted!', 'success');
+      closeDeleteModal();
+      loadTrees();
+    }
+  } catch (e) {
+    showToast(e.message || 'Delete failed', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// QR Code Generator Function (using qrcode-generator library)
+function downloadQRCode(treeCode) {
+  try {
+    // Check if qrcode library is loaded
+    if (typeof qrcode === 'undefined') {
+      showToast('QR library not loaded. Please refresh the page.', 'error');
+      return;
+    }
+
+    // Create QR code object
+    const qr = qrcode(0, 'H'); // Type number 0 (auto), High error correction
+    qr.addData(treeCode);
+    qr.make();
+
+    // Get module count
+    const moduleCount = qr.getModuleCount();
+    const cellSize = 16; // 16px per module for higher resolution
+    const margin = 4; // margin in cells
+    const size = moduleCount * cellSize + margin * 2 * cellSize;
+
+    // Create canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Fill white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, size, size);
+
+    // Draw QR code
+    ctx.fillStyle = '#000000';
+    for (let row = 0; row < moduleCount; row++) {
+      for (let col = 0; col < moduleCount; col++) {
+        if (qr.isDark(row, col)) {
+          ctx.fillRect(
+            col * cellSize + margin * cellSize,
+            row * cellSize + margin * cellSize,
+            cellSize,
+            cellSize
+          );
+        }
+      }
+    }
+
+    // Convert to blob and download
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `QR_${treeCode}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showToast(`QR Code for ${treeCode} downloaded!`, 'success');
+    }, 'image/png');
+
+  } catch (error) {
+    console.error('QR Generation Error:', error);
+    showToast('Failed to generate QR Code: ' + error.message, 'error');
+  }
+}
+
+window.downloadQRCode = downloadQRCode;
 
 // Global timer for auto-refreshing timestamps
 let timestampRefreshTimer = null;

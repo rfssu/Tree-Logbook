@@ -1,6 +1,6 @@
 // API Client
 const API = {
-    baseURL: 'http://localhost:7000/api',
+    baseURL: 'http://127.0.0.1:7000/api',
 
     // Get headers with auth token
     getHeaders(includeAuth = true) {
